@@ -1,5 +1,6 @@
 import {
   type RequestOptions,
+  mergeCapabilities,
   Protocol,
   ProtocolOptions,
 } from "@modelcontextprotocol/sdk/shared/protocol.js";
@@ -15,6 +16,10 @@ import {
   ListToolsRequestSchema,
   LoggingMessageNotification,
   PingRequestSchema,
+  Request,
+  Result,
+  ToolAnnotations,
+  ToolListChangedNotification,
 } from "@modelcontextprotocol/sdk/types.js";
 import { AppNotification, AppRequest, AppResult } from "./types";
 import { PostMessageTransport } from "./message-transport";
@@ -49,6 +54,12 @@ import {
   McpUiRequestDisplayModeResultSchema,
 } from "./types";
 import { Transport } from "@modelcontextprotocol/sdk/shared/transport.js";
+import { safeParseAsync, ZodRawShape } from "zod/v4";
+import {
+  RegisteredTool,
+  ToolCallback,
+} from "@modelcontextprotocol/sdk/server/mcp.js";
+import { ZodSchema } from "zod";
 
 export { PostMessageTransport } from "./message-transport";
 export * from "./types";
@@ -207,6 +218,7 @@ export class App extends Protocol<AppRequest, AppNotification, AppResult> {
   private _hostCapabilities?: McpUiHostCapabilities;
   private _hostInfo?: Implementation;
   private _hostContext?: McpUiHostContext;
+  private _registeredTools: { [name: string]: RegisteredTool } = {};
 
   /**
    * Create a new MCP App instance.
@@ -239,6 +251,111 @@ export class App extends Protocol<AppRequest, AppNotification, AppResult> {
     // Set up default handler to update _hostContext when notifications arrive.
     // Users can override this by setting onhostcontextchanged.
     this.onhostcontextchanged = () => {};
+  }
+
+  private registerCapabilities(capabilities: McpUiAppCapabilities): void {
+    if (this.transport) {
+      throw new Error(
+        "Cannot register capabilities after transport is established",
+      );
+    }
+    this._capabilities = mergeCapabilities(this._capabilities, capabilities);
+  }
+
+  registerTool<
+    OutputArgs extends ZodSchema,
+    InputArgs extends undefined | ZodSchema = undefined,
+  >(
+    name: string,
+    config: {
+      title?: string;
+      description?: string;
+      inputSchema?: InputArgs;
+      outputSchema?: OutputArgs;
+      annotations?: ToolAnnotations;
+      _meta?: Record<string, unknown>;
+    },
+    cb: ToolCallback<InputArgs>,
+  ): RegisteredTool {
+    const app = this;
+    const registeredTool: RegisteredTool = {
+      title: config.title,
+      description: config.description,
+      inputSchema: config.inputSchema,
+      outputSchema: config.outputSchema,
+      annotations: config.annotations,
+      _meta: config._meta,
+      enabled: true,
+      enable(): void {
+        this.enabled = true;
+        app.sendToolListChanged();
+      },
+      disable(): void {
+        this.enabled = false;
+        app.sendToolListChanged();
+      },
+      update(updates) {
+        Object.assign(this, updates);
+        app.sendToolListChanged();
+      },
+      remove() {
+        delete app._registeredTools[name];
+        app.sendToolListChanged();
+      },
+      callback: (async (args: any, extra: RequestHandlerExtra) => {
+        if (!registeredTool.enabled) {
+          throw new Error(`Tool ${name} is disabled`);
+        }
+        if (config.inputSchema) {
+          const parseResult = await safeParseAsync(
+            config.inputSchema as any,
+            args,
+          );
+          if (!parseResult.success) {
+            throw new Error(
+              `Invalid input for tool ${name}: ${parseResult.error}`,
+            );
+          }
+          args = parseResult.data;
+        }
+        const result = await cb(args, extra);
+        if (config.outputSchema) {
+          const parseResult = await safeParseAsync(
+            config.outputSchema as any,
+            result.structuredContent,
+          );
+          if (!parseResult.success) {
+            throw new Error(
+              `Invalid output for tool ${name}: ${parseResult.error}`,
+            );
+          }
+          return parseResult.data;
+        }
+        return result;
+      }) as any,
+    };
+
+    this._registeredTools[name] = registeredTool;
+
+    this.ensureToolHandlersInitialized();
+    return registeredTool;
+  }
+
+  private _toolHandlersInitialized = false;
+  private ensureToolHandlersInitialized(): void {
+    if (this._toolHandlersInitialized) {
+      return;
+    }
+    this._toolHandlersInitialized = true;
+  }
+
+  async sendToolListChanged(
+    params: ToolListChangedNotification["params"] = {},
+  ): Promise<void> {
+    await this.notification(<ToolListChangedNotification>{
+      method: "notifications/tools/list_changed",
+      params,
+    });
   }
 
   /**
@@ -638,7 +755,9 @@ export class App extends Protocol<AppRequest, AppNotification, AppResult> {
    * ```typescript
    * app.onlisttools = async (params, extra) => {
    *   return {
-   *     tools: ["calculate", "convert", "format"]
+   *     tools: [
+   *       { name: "calculate", description: "Calculator", inputSchema: { type: "object", properties: {} } }
+   *     ]
    *   };
    * };
    * ```
@@ -650,7 +769,7 @@ export class App extends Protocol<AppRequest, AppNotification, AppResult> {
     callback: (
       params: ListToolsRequest["params"],
       extra: RequestHandlerExtra,
-    ) => Promise<{ tools: string[] }>,
+    ) => Promise<any>,
   ) {
     this.setRequestHandler(ListToolsRequestSchema, (request, extra) =>
       callback(request.params, extra),
