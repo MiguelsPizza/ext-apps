@@ -14,10 +14,12 @@ import {
   Implementation,
   ListToolsRequest,
   ListToolsRequestSchema,
+  ListToolsResult,
   LoggingMessageNotification,
   PingRequestSchema,
   Request,
   Result,
+  Tool,
   ToolAnnotations,
   ToolListChangedNotification,
 } from "@modelcontextprotocol/sdk/types.js";
@@ -59,7 +61,7 @@ import {
   RegisteredTool,
   ToolCallback,
 } from "@modelcontextprotocol/sdk/server/mcp.js";
-import { ZodSchema } from "zod";
+import { z, ZodSchema } from "zod/v4";
 import { zodToJsonSchema } from "zod-to-json-schema";
 
 export { PostMessageTransport } from "./message-transport";
@@ -356,17 +358,24 @@ export class App extends Protocol<AppRequest, AppNotification, AppResult> {
       }
       return tool.callback(params.arguments as any, extra);
     };
-    this.onlisttools = async () => {
-      const tools = Object.entries(this._registeredTools).map(
-        ([name, tool]) => ({
-          name,
-          description: tool.description,
-          inputSchema:
-            tool.inputSchema && "shape" in tool.inputSchema
-              ? zodToJsonSchema(tool.inputSchema as any)
-              : tool.inputSchema || { type: "object" as const, properties: {} },
-        }),
-      );
+    this.onlisttools = async (_params, _extra) => {
+      const tools: Tool[] = Object.entries(this._registeredTools)
+        .filter(([_, tool]) => tool.enabled)
+        .map(
+          ([name, tool]) =>
+            <Tool>{
+              name,
+              description: tool.description,
+              inputSchema: tool.inputSchema
+                ? z.toJSONSchema(tool.inputSchema as ZodSchema)
+                : undefined,
+              outputSchema: tool.outputSchema
+                ? z.toJSONSchema(tool.outputSchema as ZodSchema)
+                : undefined,
+              annotations: tool.annotations,
+              _meta: tool._meta,
+            },
+        );
       return { tools };
     };
   }
@@ -791,7 +800,7 @@ export class App extends Protocol<AppRequest, AppNotification, AppResult> {
     callback: (
       params: ListToolsRequest["params"],
       extra: RequestHandlerExtra,
-    ) => Promise<any>,
+    ) => Promise<ListToolsResult>,
   ) {
     this.setRequestHandler(ListToolsRequestSchema, (request, extra) =>
       callback(request.params, extra),
