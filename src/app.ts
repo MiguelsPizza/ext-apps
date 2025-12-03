@@ -60,6 +60,7 @@ import {
   ToolCallback,
 } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { ZodSchema } from "zod";
+import { zodToJsonSchema } from "zod-to-json-schema";
 
 export { PostMessageTransport } from "./message-transport";
 export * from "./types";
@@ -347,6 +348,27 @@ export class App extends Protocol<AppRequest, AppNotification, AppResult> {
       return;
     }
     this._toolHandlersInitialized = true;
+
+    this.oncalltool = async (params, extra) => {
+      const tool = this._registeredTools[params.name];
+      if (!tool) {
+        throw new Error(`Tool ${params.name} not found`);
+      }
+      return tool.callback(params.arguments as any, extra);
+    };
+    this.onlisttools = async () => {
+      const tools = Object.entries(this._registeredTools).map(
+        ([name, tool]) => ({
+          name,
+          description: tool.description,
+          inputSchema:
+            tool.inputSchema && "shape" in tool.inputSchema
+              ? zodToJsonSchema(tool.inputSchema as any)
+              : tool.inputSchema || { type: "object" as const, properties: {} },
+        }),
+      );
+      return { tools };
+    };
   }
 
   async sendToolListChanged(
