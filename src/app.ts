@@ -361,21 +361,22 @@ export class App extends Protocol<AppRequest, AppNotification, AppResult> {
     this.onlisttools = async (_params, _extra) => {
       const tools: Tool[] = Object.entries(this._registeredTools)
         .filter(([_, tool]) => tool.enabled)
-        .map(
-          ([name, tool]) =>
-            <Tool>{
-              name,
-              description: tool.description,
-              inputSchema: tool.inputSchema
-                ? z.toJSONSchema(tool.inputSchema as ZodSchema)
-                : undefined,
-              outputSchema: tool.outputSchema
-                ? z.toJSONSchema(tool.outputSchema as ZodSchema)
-                : undefined,
-              annotations: tool.annotations,
-              _meta: tool._meta,
-            },
-        );
+        .map(([name, tool]) => {
+          const result: Tool = {
+            name,
+            description: tool.description,
+            inputSchema: tool.inputSchema
+              ? z.toJSONSchema(tool.inputSchema as ZodSchema)
+              : { type: "object" as const, properties: {} },
+          };
+          if (tool.annotations) {
+            result.annotations = tool.annotations;
+          }
+          if (tool._meta) {
+            result._meta = tool._meta;
+          }
+          return result;
+        });
       return { tools };
     };
   }
