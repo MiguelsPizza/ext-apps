@@ -1336,7 +1336,7 @@ export class AppBridge extends Protocol<
   /** @deprecated Use {@link teardownResource} instead */
   sendResourceTeardown: AppBridge["teardownResource"] = this.teardownResource;
 
-  sendCallTool(params: CallToolRequest["params"], options?: RequestOptions) {
+  callTool(params: CallToolRequest["params"], options?: RequestOptions) {
     return this.request(
       { method: "tools/call", params },
       CallToolResultSchema,
@@ -1344,7 +1344,7 @@ export class AppBridge extends Protocol<
     );
   }
 
-  sendListTools(params: ListToolsRequest["params"], options?: RequestOptions) {
+  listTools(params: ListToolsRequest["params"], options?: RequestOptions) {
     return this.request(
       { method: "tools/list", params },
       ListToolsResultSchema,

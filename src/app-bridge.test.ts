@@ -818,7 +818,7 @@ describe("App <-> AppBridge integration", () => {
       await bridge.connect(bridgeTransport);
     });
 
-    it("bridge.sendCallTool calls app.oncalltool handler", async () => {
+    it("bridge.callTool calls app.oncalltool handler", async () => {
       // App needs tool capabilities to handle tool calls
       const appCapabilities = { tools: {} };
       app = new App(testAppInfo, appCapabilities, { autoResize: false });
@@ -834,7 +834,7 @@ describe("App <-> AppBridge integration", () => {
 
       await app.connect(appTransport);
 
-      const result = await bridge.sendCallTool({
+      const result = await bridge.callTool({
         name: "test-tool",
         arguments: { foo: "bar" },
       });
@@ -849,7 +849,7 @@ describe("App <-> AppBridge integration", () => {
       ]);
     });
 
-    it("bridge.sendListTools calls app.onlisttools handler", async () => {
+    it("bridge.listTools calls app.onlisttools handler", async () => {
       // App needs tool capabilities to handle tool list requests
       const appCapabilities = { tools: {} };
       app = new App(testAppInfo, appCapabilities, { autoResize: false });
@@ -881,7 +881,7 @@ describe("App <-> AppBridge integration", () => {
 
       await app.connect(appTransport);
 
-      const result = await bridge.sendListTools({});
+      const result = await bridge.listTools({});
 
       expect(receivedCalls).toHaveLength(1);
       expect(result.tools).toHaveLength(3);
@@ -907,7 +907,7 @@ describe("App <-> AppBridge integration", () => {
       await bridge.connect(bridgeTransport);
       await app.connect(appTransport);
 
-      await bridge.sendCallTool({
+      await bridge.callTool({
         name: "test-tool",
         arguments: {},
       });
@@ -940,7 +940,7 @@ describe("App <-> AppBridge integration", () => {
       await bridge.connect(bridgeTransport);
       await app.connect(appTransport);
 
-      const result = await bridge.sendCallTool({
+      const result = await bridge.callTool({
         name: "greet",
         arguments: { name: "Alice" },
       });
@@ -974,7 +974,7 @@ describe("App <-> AppBridge integration", () => {
         await app.connect(appTransport);
 
         // Call the tool through bridge - should work automatically
-        const result = await bridge.sendCallTool({
+        const result = await bridge.callTool({
           name: "greet",
           arguments: { name: "Bob" },
         });
@@ -995,7 +995,7 @@ describe("App <-> AppBridge integration", () => {
 
         // Try to call a tool that doesn't exist
         await expect(
-          bridge.sendCallTool({
+          bridge.callTool({
             name: "nonexistent",
             arguments: {},
           }),
@@ -1044,7 +1044,7 @@ describe("App <-> AppBridge integration", () => {
         await app.connect(appTransport);
 
         // Call first tool
-        const addResult = await bridge.sendCallTool({
+        const addResult = await bridge.callTool({
           name: "add",
           arguments: { a: 5, b: 3 },
         });
@@ -1053,7 +1053,7 @@ describe("App <-> AppBridge integration", () => {
         ]);
 
         // Call second tool
-        const multiplyResult = await bridge.sendCallTool({
+        const multiplyResult = await bridge.callTool({
           name: "multiply",
           arguments: { a: 5, b: 3 },
         });
@@ -1080,7 +1080,7 @@ describe("App <-> AppBridge integration", () => {
 
         // Should work when enabled
         await expect(
-          bridge.sendCallTool({ name: "test-tool", arguments: {} }),
+          bridge.callTool({ name: "test-tool", arguments: {} }),
         ).resolves.toBeDefined();
 
         // Disable tool
@@ -1088,7 +1088,7 @@ describe("App <-> AppBridge integration", () => {
 
         // Should throw when disabled
         await expect(
-          bridge.sendCallTool({ name: "test-tool", arguments: {} }),
+          bridge.callTool({ name: "test-tool", arguments: {} }),
         ).rejects.toThrow("Tool test-tool is disabled");
       });
 
@@ -1114,7 +1114,7 @@ describe("App <-> AppBridge integration", () => {
 
         // Valid input should work
         await expect(
-          bridge.sendCallTool({
+          bridge.callTool({
             name: "strict-tool",
             arguments: { required: "hello" },
           }),
@@ -1122,7 +1122,7 @@ describe("App <-> AppBridge integration", () => {
 
         // Invalid input should fail
         await expect(
-          bridge.sendCallTool({
+          bridge.callTool({
             name: "strict-tool",
             arguments: { wrong: "field" },
           }),
@@ -1150,7 +1150,7 @@ describe("App <-> AppBridge integration", () => {
         await app.connect(appTransport);
 
         // Valid output should work
-        const result = await bridge.sendCallTool({
+        const result = await bridge.callTool({
           name: "validated-output",
           arguments: {},
         });
@@ -1172,7 +1172,7 @@ describe("App <-> AppBridge integration", () => {
         await app.connect(appTransport);
 
         // First version
-        let result = await bridge.sendCallTool({
+        let result = await bridge.callTool({
           name: "dynamic-tool",
           arguments: {},
         });
@@ -1183,7 +1183,7 @@ describe("App <-> AppBridge integration", () => {
 
         // Should fail after removal
         await expect(
-          bridge.sendCallTool({ name: "dynamic-tool", arguments: {} }),
+          bridge.callTool({ name: "dynamic-tool", arguments: {} }),
         ).rejects.toThrow("Tool dynamic-tool not found");
 
         // Re-register with different behavior
@@ -1192,7 +1192,7 @@ describe("App <-> AppBridge integration", () => {
         }));
 
         // Should work with new version
-        result = await bridge.sendCallTool({
+        result = await bridge.callTool({
           name: "dynamic-tool",
           arguments: {},
         });
@@ -1218,7 +1218,7 @@ describe("App <-> AppBridge integration", () => {
 
         await app.connect(appTransport);
 
-        const result = await bridge.sendListTools({});
+        const result = await bridge.listTools({});
 
         expect(result.tools).toHaveLength(3);
         expect(result.tools.map((t) => t.name)).toContain("tool1");
@@ -1241,7 +1241,7 @@ describe("App <-> AppBridge integration", () => {
         // Remove the tool after connecting
         dummyTool.remove();
 
-        const result = await bridge.sendListTools({});
+        const result = await bridge.listTools({});
 
         expect(result.tools).toEqual([]);
       });
@@ -1260,7 +1260,7 @@ describe("App <-> AppBridge integration", () => {
         dummy.remove();
 
         // Initially no tools
-        let result = await bridge.sendListTools({});
+        let result = await bridge.listTools({});
         expect(result.tools).toEqual([]);
 
         // Add a tool
@@ -1269,7 +1269,7 @@ describe("App <-> AppBridge integration", () => {
         }));
 
         // Should now include the new tool
-        result = await bridge.sendListTools({});
+        result = await bridge.listTools({});
         expect(result.tools.map((t) => t.name)).toEqual(["new-tool"]);
 
         // Add another tool
@@ -1278,7 +1278,7 @@ describe("App <-> AppBridge integration", () => {
         }));
 
         // Should now include both tools
-        result = await bridge.sendListTools({});
+        result = await bridge.listTools({});
         expect(result.tools).toHaveLength(2);
         expect(result.tools.map((t) => t.name)).toContain("new-tool");
         expect(result.tools.map((t) => t.name)).toContain("another-tool");
@@ -1301,14 +1301,14 @@ describe("App <-> AppBridge integration", () => {
         await app.connect(appTransport);
 
         // Initially all three tools
-        let result = await bridge.sendListTools({});
+        let result = await bridge.listTools({});
         expect(result.tools).toHaveLength(3);
 
         // Remove one tool
         tool2.remove();
 
         // Should now have two tools
-        result = await bridge.sendListTools({});
+        result = await bridge.listTools({});
         expect(result.tools).toHaveLength(2);
         expect(result.tools.map((t) => t.name)).toContain("tool1");
         expect(result.tools.map((t) => t.name)).toContain("tool3");
@@ -1318,7 +1318,7 @@ describe("App <-> AppBridge integration", () => {
         tool1.remove();
 
         // Should now have one tool
-        result = await bridge.sendListTools({});
+        result = await bridge.listTools({});
         expect(result.tools.map((t) => t.name)).toEqual(["tool3"]);
       });
 
@@ -1346,7 +1346,7 @@ describe("App <-> AppBridge integration", () => {
         // Disable one tool after connecting
         tool2.disable();
 
-        const result = await bridge.sendListTools({});
+        const result = await bridge.listTools({});
 
         // Only enabled tool should be in the list
         expect(result.tools).toHaveLength(1);
@@ -1375,11 +1375,11 @@ describe("App <-> AppBridge integration", () => {
         );
 
         // List should include the tool
-        let listResult = await bridge.sendListTools({});
+        let listResult = await bridge.listTools({});
         expect(listResult.tools.map((t) => t.name)).toContain("counter");
 
         // Call the tool
-        let callResult = await bridge.sendCallTool({
+        let callResult = await bridge.callTool({
           name: "counter",
           arguments: {},
         });
@@ -1391,7 +1391,7 @@ describe("App <-> AppBridge integration", () => {
         tool.update({ description: "An updated counter tool" });
 
         // Should still be callable
-        callResult = await bridge.sendCallTool({
+        callResult = await bridge.callTool({
           name: "counter",
           arguments: {},
         });
@@ -1401,12 +1401,12 @@ describe("App <-> AppBridge integration", () => {
         tool.remove();
 
         // Should no longer be in list
-        listResult = await bridge.sendListTools({});
+        listResult = await bridge.listTools({});
         expect(listResult.tools.map((t) => t.name)).not.toContain("counter");
 
         // Should no longer be callable
         await expect(
-          bridge.sendCallTool({ name: "counter", arguments: {} }),
+          bridge.callTool({ name: "counter", arguments: {} }),
         ).rejects.toThrow("Tool counter not found");
       });
 
@@ -1457,19 +1457,19 @@ describe("App <-> AppBridge integration", () => {
         await app2.connect(app2Transport);
 
         // Each app should only see its own tools
-        const list1 = await bridge1.sendListTools({});
+        const list1 = await bridge1.listTools({});
         expect(list1.tools.map((t) => t.name)).toEqual(["app1-tool"]);
 
-        const list2 = await bridge2.sendListTools({});
+        const list2 = await bridge2.listTools({});
         expect(list2.tools.map((t) => t.name)).toEqual(["app2-tool"]);
 
         // Each app should only be able to call its own tools
         await expect(
-          bridge1.sendCallTool({ name: "app1-tool", arguments: {} }),
+          bridge1.callTool({ name: "app1-tool", arguments: {} }),
         ).resolves.toBeDefined();
 
         await expect(
-          bridge1.sendCallTool({ name: "app2-tool", arguments: {} }),
+          bridge1.callTool({ name: "app2-tool", arguments: {} }),
         ).rejects.toThrow("Tool app2-tool not found");
 
         // Clean up
