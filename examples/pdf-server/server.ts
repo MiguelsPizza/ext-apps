@@ -136,9 +136,7 @@ Use this tool when the user asks to view, display, read, or open a PDF. Accepts:
 - URLs from list_pdfs (preloaded PDFs)
 - Any arxiv.org URL (loaded dynamically)
 
-The viewer supports zoom, navigation, text selection, and fullscreen mode.
-
-The widget exposes tools: go-to-page (navigate to a page), get-page-text (extract text), search-text (find text in document), set-zoom (adjust zoom level), get-document-info (get metadata). Use list_widget_tools to discover available actions.`,
+The viewer supports zoom, navigation, text selection, and fullscreen mode. The widget is interactive and exposes tools for page navigation, text extraction, searching, and zoom control.`,
       inputSchema: {
         url: z
           .string()

@@ -269,7 +269,7 @@ export function createServer(): McpServer {
     {
       title: "Get Budget Data",
       description:
-        "Returns budget configuration with 24 months of historical allocations and industry benchmarks by company stage. The widget exposes tools: get-allocations (current allocations), set-allocation (adjust a category), set-total-budget (change budget), set-company-stage (change benchmark stage), get-benchmark-comparison (compare to industry). Use list_widget_tools to discover available actions.",
+        "Returns budget configuration with 24 months of historical allocations and industry benchmarks by company stage. The widget is interactive and exposes tools for reading/modifying allocations, adjusting budgets, and comparing against industry benchmarks.",
       inputSchema: {},
       outputSchema: BudgetDataResponseSchema,
       _meta: { ui: { resourceUri } },
