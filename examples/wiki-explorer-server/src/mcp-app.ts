@@ -576,6 +576,123 @@ app.registerTool(
   },
 );
 
+// Tool: Expand a node to show its linked pages
+app.registerTool(
+  "expand-node",
+  {
+    title: "Expand Node",
+    description:
+      "Expand a node to fetch and display all Wikipedia pages it links to. This is the core way to explore the graph.",
+    inputSchema: z.object({
+      identifier: z
+        .string()
+        .describe("The title or URL of the node to expand"),
+    }),
+  },
+  async (args) => {
+    const { identifier } = args as { identifier: string };
+    const lowerIdentifier = identifier.toLowerCase();
+
+    // Find node by title (case-insensitive partial match) or exact URL
+    const node = graphData.nodes.find(
+      (n) =>
+        n.url === identifier || n.title.toLowerCase().includes(lowerIdentifier),
+    );
+
+    if (!node) {
+      return {
+        content: [
+          { type: "text" as const, text: `Node not found: ${identifier}` },
+        ],
+        structuredContent: {
+          success: false,
+          error: "Node not found in graph",
+          availableNodes: graphData.nodes.map((n) => n.title),
+        },
+      };
+    }
+
+    if (node.state === "expanded") {
+      return {
+        content: [
+          {
+            type: "text" as const,
+            text: `Node "${node.title}" is already expanded`,
+          },
+        ],
+        structuredContent: {
+          success: true,
+          alreadyExpanded: true,
+          node: { url: node.url, title: node.title },
+        },
+      };
+    }
+
+    if (node.state === "error") {
+      return {
+        content: [
+          {
+            type: "text" as const,
+            text: `Node "${node.title}" has an error: ${node.errorMessage}`,
+          },
+        ],
+        structuredContent: {
+          success: false,
+          error: node.errorMessage,
+        },
+      };
+    }
+
+    try {
+      // Fetch the linked pages using the server tool
+      const result = await app.callServerTool({
+        name: "get-first-degree-links",
+        arguments: { url: node.url },
+      });
+
+      graph.warmupTicks(0);
+      handleToolResultData(result);
+
+      const response = result.structuredContent as unknown as ToolResponse;
+      const linksAdded = response?.links?.length ?? 0;
+
+      // Center on the expanded node
+      if (node.x !== undefined && node.y !== undefined) {
+        graph.centerAt(node.x, node.y, 500);
+      }
+
+      return {
+        content: [
+          {
+            type: "text" as const,
+            text: `Expanded "${node.title}" - found ${linksAdded} linked articles`,
+          },
+        ],
+        structuredContent: {
+          success: true,
+          node: { url: node.url, title: node.title },
+          linksAdded,
+        },
+      };
+    } catch (e) {
+      setNodeState(node.url, "error", "Request failed");
+      updateGraph();
+      return {
+        content: [
+          {
+            type: "text" as const,
+            text: `Failed to expand "${node.title}": ${e instanceof Error ? e.message : String(e)}`,
+          },
+        ],
+        structuredContent: {
+          success: false,
+          error: String(e),
+        },
+      };
+    }
+  },
+);
+
 // Tool: Get list of currently visible nodes in the graph
 app.registerTool(
   "get-visible-nodes",
