@@ -2,6 +2,29 @@
 
 A real-time text-to-speech MCP App with karaoke-style text highlighting, powered by [Kyutai's Pocket TTS](https://github.com/kyutai-labs/pocket-tts).
 
+![Screenshot](screenshot.png)
+
+## MCP Client Configuration
+
+Add to your MCP client configuration (stdio transport):
+
+```json
+{
+  "mcpServers": {
+    "say": {
+      "command": "uv",
+      "args": [
+        "run",
+        "--default-index",
+        "https://pypi.org/simple",
+        "https://raw.githubusercontent.com/modelcontextprotocol/ext-apps/refs/heads/main/examples/say-server/server.py",
+        "--stdio"
+      ]
+    }
+  }
+}
+```
+
 ## MCP App Features Demonstrated
 
 This example showcases several MCP App capabilities:
@@ -26,34 +49,30 @@ This example showcases several MCP App capabilities:
 
 ## Prerequisites
 
-- [uv](https://docs.astral.sh/uv/getting-started/installation/) - fast Python package manager
-- A CUDA GPU (recommended) or CPU with sufficient RAM (~2GB for model)
+- [uv](https://docs.astral.sh/uv/) - fast Python package manager
 
 ## Quick Start
 
-The server is a single self-contained Python file that can be run directly with `uv`:
+The server is a single self-contained Python file that can be run directly from GitHub:
 
 ```bash
-# Run directly (uv auto-installs dependencies)
-uv run examples/say-server/server.py
+# Run directly from GitHub (uv auto-installs dependencies)
+uv run https://raw.githubusercontent.com/modelcontextprotocol/ext-apps/main/examples/say-server/server.py
 ```
 
 The server will be available at `http://localhost:3109/mcp`.
 
 ## Running with Docker
 
-Run directly from GitHub using the official `uv` Docker image. Mount your HuggingFace cache to avoid re-downloading the model:
+Run directly from GitHub using the official `uv` Docker image:
 
 ```bash
 docker run --rm -it \
   -p 3109:3109 \
-  -v ~/.cache/huggingface:/root/.cache/huggingface \
-  -e HF_HOME=/root/.cache/huggingface \
+  -v ~/.cache/huggingface-docker-say-server:/root/.cache/huggingface \
   ghcr.io/astral-sh/uv:debian \
   uv run https://raw.githubusercontent.com/modelcontextprotocol/ext-apps/main/examples/say-server/server.py
 ```
-
-For GPU support, add `--gpus all` (requires [NVIDIA Container Toolkit](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/install-guide.html)).
 
 ## Usage
 
@@ -66,8 +85,11 @@ Add to your Claude Desktop config (`~/Library/Application Support/Claude/claude_
   "mcpServers": {
     "say": {
       "command": "uv",
-      "args": ["run", "server.py", "--stdio"],
-      "cwd": "/path/to/examples/say-server"
+      "args": [
+        "run",
+        "https://raw.githubusercontent.com/modelcontextprotocol/ext-apps/main/examples/say-server/server.py",
+        "--stdio"
+      ]
     }
   }
 }

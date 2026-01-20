@@ -4,6 +4,27 @@
 
 Interactive 3D scene renderer using Three.js. Demonstrates streaming code preview and full MCP App integration.
 
+## MCP Client Configuration
+
+Add to your MCP client configuration (stdio transport):
+
+```json
+{
+  "mcpServers": {
+    "threejs": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "--silent",
+        "--registry=https://registry.npmjs.org/",
+        "@modelcontextprotocol/server-threejs",
+        "--stdio"
+      ]
+    }
+  }
+}
+```
+
 ## Features
 
 - **Interactive 3D Rendering**: Execute JavaScript code to create and animate Three.js scenes

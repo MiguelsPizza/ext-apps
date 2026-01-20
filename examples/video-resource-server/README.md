@@ -4,6 +4,27 @@
 
 Demonstrates serving binary content (video) via MCP resources using the base64 blob pattern.
 
+## MCP Client Configuration
+
+Add to your MCP client configuration (stdio transport):
+
+```json
+{
+  "mcpServers": {
+    "video-resource": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "--silent",
+        "--registry=https://registry.npmjs.org/",
+        "@modelcontextprotocol/server-video-resource",
+        "--stdio"
+      ]
+    }
+  }
+}
+```
+
 ## Quick Start
 
 ```bash

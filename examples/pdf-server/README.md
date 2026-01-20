@@ -4,6 +4,27 @@
 
 A simple interactive PDF viewer that uses [PDF.js](https://mozilla.github.io/pdf.js/). Launch it w/ a few PDF files and/or URLs as CLI args (+ support loading any additional pdf from arxiv.org).
 
+## MCP Client Configuration
+
+Add to your MCP client configuration (stdio transport):
+
+```json
+{
+  "mcpServers": {
+    "pdf": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "--silent",
+        "--registry=https://registry.npmjs.org/",
+        "@modelcontextprotocol/server-pdf",
+        "--stdio"
+      ]
+    }
+  }
+}
+```
+
 ## What This Example Demonstrates
 
 ### 1. Chunked Data Through Size-Limited Tool Calls
