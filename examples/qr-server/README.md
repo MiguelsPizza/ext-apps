@@ -4,12 +4,37 @@ A minimal Python MCP server that generates customizable QR codes with an interac
 
 ![Screenshot](https://modelcontextprotocol.github.io/ext-apps/screenshots/qr-server/screenshot.png)
 
+## MCP Client Configuration
+
+First, clone the repository:
+
+```bash
+git clone https://github.com/modelcontextprotocol/ext-apps.git
+```
+
+Then add to your MCP client configuration (stdio transport), replacing the path with your clone location:
+
+```json
+{
+  "mcpServers": {
+    "qr": {
+      "command": "uv",
+      "args": [
+        "run",
+        "/path/to/ext-apps/examples/qr-server/server.py",
+        "--stdio"
+      ]
+    }
+  }
+}
+```
+
 ## Features
 
 - Generate QR codes from any text or URL
 - Customizable colors, size, and error correction
 - Interactive widget that displays in MCP-UI enabled clients
-- Supports both HTTP (for web clients) and stdio (for Claude Desktop)
+- Supports both HTTP (for web clients) and stdio (for MCP clients)
 
 ## Prerequisites
 
@@ -41,24 +66,13 @@ Connect from basic-host:
 SERVERS='["http://localhost:3108/mcp"]' bun serve.ts
 ```
 
-### Stdio Mode (for Claude Desktop)
+### Stdio Mode (for MCP clients)
 
 ```bash
 uv run server.py --stdio
 ```
 
-Add to Claude Desktop config (`~/Library/Application Support/Claude/claude_desktop_config.json`):
-
-```json
-{
-  "mcpServers": {
-    "qr": {
-      "command": "uv",
-      "args": ["run", "/path/to/qr-server/server.py", "--stdio"]
-    }
-  }
-}
-```
+See [MCP Client Configuration](#mcp-client-configuration) above for how to add this server to your MCP client.
 
 ### Docker (accessing host server from container)
 

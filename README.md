@@ -67,8 +67,8 @@ Or edit your `package.json` manually:
 | [**Scenario Modeler**](examples/scenario-modeler-server) | [**Budget Allocator**](examples/budget-allocator-server) | [**Customer Segmentation**](examples/customer-segmentation-server) |
 | [![System Monitor](examples/system-monitor-server/grid-cell.png "Real-time OS metrics")](examples/system-monitor-server) | [![Transcript](examples/transcript-server/grid-cell.png "Live speech transcription")](examples/transcript-server) | [![Video Resource](examples/video-resource-server/grid-cell.png "Binary video via MCP resources")](examples/video-resource-server) |
 | [**System Monitor**](examples/system-monitor-server) | [**Transcript**](examples/transcript-server) | [**Video Resource**](examples/video-resource-server) |
-| [![PDF Server](examples/pdf-server/grid-cell.png "Interactive PDF viewer with chunked loading")](examples/pdf-server) | [![QR Code](examples/qr-server/grid-cell.png "QR code generator")](examples/qr-server) | |
-| [**PDF Server**](examples/pdf-server) | [**QR Code (Python)**](examples/qr-server) | |
+| [![PDF Server](examples/pdf-server/grid-cell.png "Interactive PDF viewer with chunked loading")](examples/pdf-server) | [![QR Code](examples/qr-server/grid-cell.png "QR code generator")](examples/qr-server) | [![Say Demo](examples/say-server/grid-cell.png "Text-to-speech demo")](examples/say-server) |
+| [**PDF Server**](examples/pdf-server) | [**QR Code (Python)**](examples/qr-server) | [**Say Demo**](examples/say-server) |
 
 ### Starter Templates
 
@@ -79,7 +79,231 @@ Or edit your `package.json` manually:
 
 The [`examples/`](https://github.com/modelcontextprotocol/ext-apps/tree/main/examples) directory contains additional demo apps showcasing real-world use cases.
 
-To run all examples:
+<details>
+<summary>MCP client configuration for all examples</summary>
+
+Add to your MCP client configuration (stdio transport):
+
+```json
+{
+  "mcpServers": {
+    "basic-react": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "--silent",
+        "--registry=https://registry.npmjs.org/",
+        "@modelcontextprotocol/server-basic-react",
+        "--stdio"
+      ]
+    },
+    "basic-vanillajs": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "--silent",
+        "--registry=https://registry.npmjs.org/",
+        "@modelcontextprotocol/server-basic-vanillajs",
+        "--stdio"
+      ]
+    },
+    "basic-vue": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "--silent",
+        "--registry=https://registry.npmjs.org/",
+        "@modelcontextprotocol/server-basic-vue",
+        "--stdio"
+      ]
+    },
+    "basic-svelte": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "--silent",
+        "--registry=https://registry.npmjs.org/",
+        "@modelcontextprotocol/server-basic-svelte",
+        "--stdio"
+      ]
+    },
+    "basic-preact": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "--silent",
+        "--registry=https://registry.npmjs.org/",
+        "@modelcontextprotocol/server-basic-preact",
+        "--stdio"
+      ]
+    },
+    "basic-solid": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "--silent",
+        "--registry=https://registry.npmjs.org/",
+        "@modelcontextprotocol/server-basic-solid",
+        "--stdio"
+      ]
+    },
+    "budget-allocator": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "--silent",
+        "--registry=https://registry.npmjs.org/",
+        "@modelcontextprotocol/server-budget-allocator",
+        "--stdio"
+      ]
+    },
+    "cohort-heatmap": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "--silent",
+        "--registry=https://registry.npmjs.org/",
+        "@modelcontextprotocol/server-cohort-heatmap",
+        "--stdio"
+      ]
+    },
+    "customer-segmentation": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "--silent",
+        "--registry=https://registry.npmjs.org/",
+        "@modelcontextprotocol/server-customer-segmentation",
+        "--stdio"
+      ]
+    },
+    "map": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "--silent",
+        "--registry=https://registry.npmjs.org/",
+        "@modelcontextprotocol/server-map",
+        "--stdio"
+      ]
+    },
+    "pdf": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "--silent",
+        "--registry=https://registry.npmjs.org/",
+        "@modelcontextprotocol/server-pdf",
+        "--stdio"
+      ]
+    },
+    "scenario-modeler": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "--silent",
+        "--registry=https://registry.npmjs.org/",
+        "@modelcontextprotocol/server-scenario-modeler",
+        "--stdio"
+      ]
+    },
+    "shadertoy": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "--silent",
+        "--registry=https://registry.npmjs.org/",
+        "@modelcontextprotocol/server-shadertoy",
+        "--stdio"
+      ]
+    },
+    "sheet-music": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "--silent",
+        "--registry=https://registry.npmjs.org/",
+        "@modelcontextprotocol/server-sheet-music",
+        "--stdio"
+      ]
+    },
+    "system-monitor": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "--silent",
+        "--registry=https://registry.npmjs.org/",
+        "@modelcontextprotocol/server-system-monitor",
+        "--stdio"
+      ]
+    },
+    "threejs": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "--silent",
+        "--registry=https://registry.npmjs.org/",
+        "@modelcontextprotocol/server-threejs",
+        "--stdio"
+      ]
+    },
+    "transcript": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "--silent",
+        "--registry=https://registry.npmjs.org/",
+        "@modelcontextprotocol/server-transcript",
+        "--stdio"
+      ]
+    },
+    "video-resource": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "--silent",
+        "--registry=https://registry.npmjs.org/",
+        "@modelcontextprotocol/server-video-resource",
+        "--stdio"
+      ]
+    },
+    "wiki-explorer": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "--silent",
+        "--registry=https://registry.npmjs.org/",
+        "@modelcontextprotocol/server-wiki-explorer",
+        "--stdio"
+      ]
+    },
+    "qr": {
+      "command": "uv",
+      "args": [
+        "run",
+        "/path/to/ext-apps/examples/qr-server/server.py",
+        "--stdio"
+      ]
+    },
+    "say": {
+      "command": "uv",
+      "args": [
+        "run",
+        "--default-index",
+        "https://pypi.org/simple",
+        "https://raw.githubusercontent.com/modelcontextprotocol/ext-apps/refs/heads/main/examples/say-server/server.py",
+        "--stdio"
+      ]
+    }
+  }
+}
+```
+
+> **Note:** The `qr` server requires cloning the repository first. See [qr-server README](examples/qr-server) for details.
+
+</details>
+
+To run all examples locally in dev mode:
 
 ```bash
 npm install
