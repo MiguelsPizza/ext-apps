@@ -51,4 +51,8 @@ await Promise.all([
     outdir: "dist/src/server",
     external: ["@modelcontextprotocol/sdk"],
   }),
+  buildJs("src/fetch-wrapper/index.ts", {
+    outdir: "dist/src/fetch-wrapper",
+    external: ["@modelcontextprotocol/sdk"],
+  }),
 ]);

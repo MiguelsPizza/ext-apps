@@ -8,6 +8,7 @@ import {
   applyHostStyleVariables,
   type McpUiHostContext,
 } from "@modelcontextprotocol/ext-apps";
+import { initMcpFetch } from "@modelcontextprotocol/ext-apps/fetch-wrapper";
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import "./global.css";
 import "./mcp-app.css";
@@ -51,6 +52,7 @@ function handleHostContextChanged(ctx: McpUiHostContext) {
 
 // 1. Create app instance
 const app = new App({ name: "Get Time App", version: "1.0.0" });
+initMcpFetch(app);
 
 
 // 2. Register handlers BEFORE connecting
@@ -79,10 +81,13 @@ app.onhostcontextchanged = handleHostContextChanged;
 
 getTimeBtn.addEventListener("click", async () => {
   try {
-    console.info("Calling get-time tool...");
-    const result = await app.callServerTool({ name: "get-time", arguments: {} });
-    console.info("get-time result:", result);
-    serverTimeEl.textContent = extractTime(result);
+    console.info("Fetching /api/time via MCP wrapper...");
+    const response = await fetch("/api/time");
+    if (!response.ok) {
+      throw new Error(`Request failed: ${response.status}`);
+    }
+    const payload = (await response.json()) as { time?: string };
+    serverTimeEl.textContent = payload.time ?? "[ERROR]";
   } catch (e) {
     console.error(e);
     serverTimeEl.textContent = "[ERROR]";
