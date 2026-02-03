@@ -48,9 +48,7 @@ export interface UseAppOptions {
  * State returned by the {@link useApp `useApp`} hook.
  */
 export interface AppState {
-  /**
-   * The {@link App `App`} instance, null during initialization.
-   */
+  /** The connected {@link App `App`} instance, null during initialization */
   app: App | null;
   /** Whether initialization completed successfully */
   isConnected: boolean;
@@ -130,7 +128,7 @@ export function useApp({
   useEffect(() => {
     let mounted = true;
 
-    async function startConnection() {
+    async function connect() {
       try {
         const app = new App(appInfo, capabilities);
 
@@ -140,7 +138,7 @@ export function useApp({
         // Standalone mode: when not in an iframe, provide the app without
         // attempting connection. This enables testing/development outside
         // an MCP host context - the app will have isConnected: false.
-        if (!isInIframe()) {
+        if (typeof window === "undefined" || window.self === window.top) {
           if (mounted) {
             setApp(app);
             setIsConnected(false);
@@ -171,7 +169,7 @@ export function useApp({
       }
     }
 
-    startConnection();
+    connect();
 
     return () => {
       mounted = false;
@@ -179,24 +177,4 @@ export function useApp({
   }, []); // Intentionally not including options to avoid reconnection
 
   return { app, isConnected, error };
-}
-
-/**
- * Checks if the current window is running inside an iframe.
- *
- * Uses a try-catch to handle cross-origin scenarios where accessing
- * `window.top` throws a security exception.
- *
- * @returns `true` if in an iframe, `false` if top-level window
- */
-function isInIframe(): boolean {
-  if (typeof window === "undefined") {
-    return false;
-  }
-  try {
-    return window.self !== window.top;
-  } catch {
-    // If we can't access window.top, we're in a cross-origin iframe
-    return true;
-  }
 }

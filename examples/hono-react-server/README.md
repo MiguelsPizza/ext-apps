@@ -158,6 +158,13 @@ proxy is off.
 
 ## Running the Example
 
+Unlike most MCP app examples, this one runs in **two modes with the same code**:
+
+1. **Standalone mode** — Run it like any web app. Use browser DevTools, hot reload, direct HTTP.
+2. **MCP mode** — Run it inside an MCP host. HTTP calls route through the `http_request` tool.
+
+This is the point: you don't have to choose. Build with normal web tooling, deploy as an MCP app.
+
 ### Standalone Mode
 
 ```bash
@@ -165,14 +172,7 @@ npm install
 npm run dev
 ```
 
-Starts Vite dev server (port 3000) and Hono backend (port 3102).
-
-Open http://localhost:3000/mcp-app.html. The UI displays "Direct HTTP" mode. Requests appear in browser DevTools network tab.
-
-```bash
-# Custom port
-DEV_PORT=8787 npm run dev
-```
+Starts Vite dev server, Hono backend, and MCP server. Open the URL shown in the console (default: `http://localhost:3000/mcp-app.html`). The UI displays "Direct HTTP" mode. Requests appear in browser DevTools network tab.
 
 ### MCP Mode
 
@@ -181,7 +181,7 @@ DEV_PORT=8787 npm run dev
 npm start
 ```
 
-Open http://localhost:8080, select "hono-react-server". The UI displays "MCP Proxied" mode. Requests route through the `http_request` tool.
+Open the host URL shown in the console, select "hono-react-server". The UI displays "MCP Proxied" mode. Requests route through the `http_request` tool.
 
 ## Rationale
 

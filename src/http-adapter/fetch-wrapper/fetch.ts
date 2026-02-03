@@ -27,6 +27,13 @@ import {
   type McpHttpRequest,
   type McpHttpResponse,
 } from "../../types.js";
+
+// Re-export schemas for server-side tool registration
+export {
+  McpHttpRequestSchema,
+  McpHttpResponseSchema,
+} from "../../generated/schema.js";
+
 import {
   buildMcpHttpRequestPayloadFromRequest,
   defaultShouldIntercept,

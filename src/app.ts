@@ -106,30 +106,6 @@ export const RESOURCE_URI_META_KEY = "ui/resourceUri";
 export const RESOURCE_MIME_TYPE = "text/html;profile=mcp-app";
 
 /**
- * Extracts the backend URL from MCP host context metadata.
- *
- * Servers can pass connection hints via `_meta.demo.backendUrl` in tool definitions.
- * This helper safely extracts that value.
- *
- * @param context - The host context from `app.getHostContext()` or `onhostcontextchanged`
- * @returns The backend URL string, or undefined if not present
- *
- * @example
- * ```ts
- * const backendUrl = getBackendUrl(app.getHostContext()) ?? "http://localhost:3000";
- * ```
- */
-export function getBackendUrl(context?: McpUiHostContext): string | undefined {
-  if (!context?.toolInfo?.tool?._meta) {
-    return undefined;
-  }
-  const meta = context.toolInfo.tool._meta as { demo?: { backendUrl?: unknown } };
-  return typeof meta.demo?.backendUrl === "string"
-    ? meta.demo.backendUrl
-    : undefined;
-}
-
-/**
  * Options for configuring {@link App `App`} behavior.
  *
  * Extends `ProtocolOptions` from the MCP SDK with `App`-specific configuration.

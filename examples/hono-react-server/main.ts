@@ -77,8 +77,11 @@ async function main() {
     await startMcpHttpServer(createServer);
 
     console.log("\nDual-mode HTTP demo ready:");
-    console.log(`  - Direct HTTP: http://localhost:${BACKEND_PORT}/api/time`);
-    console.log(`  - MCP endpoint: http://localhost:${MCP_PORT}/mcp`);
+    console.log(`  Hono backend:  http://localhost:${BACKEND_PORT}/api/time`);
+    console.log(`  MCP endpoint:  http://localhost:${MCP_PORT}/mcp`);
+    console.log("\nStandalone development (with Vite hot reload):");
+    console.log("  npm run dev");
+    console.log("  Open http://localhost:3000/mcp-app.html");
   }
 }
 

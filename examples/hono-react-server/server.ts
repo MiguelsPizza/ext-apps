@@ -6,7 +6,11 @@ import {
   registerAppTool,
   RESOURCE_MIME_TYPE,
 } from "@modelcontextprotocol/ext-apps/server";
-import { createHttpRequestToolHandler } from "@modelcontextprotocol/ext-apps/fetch-wrapper";
+import {
+  createHttpRequestToolHandler,
+  McpHttpRequestSchema,
+  McpHttpResponseSchema,
+} from "@modelcontextprotocol/ext-apps/fetch-wrapper";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import type {
   CallToolResult,
@@ -60,42 +64,6 @@ export function createServer(): McpServer {
     },
   );
 
-  const httpRequestInputSchema = z.object({
-    method: z.string().default("GET"),
-    url: z.string(),
-    headers: z.record(z.string(), z.string()).optional(),
-    body: z.any().optional(),
-    bodyType: z
-      .enum(["none", "json", "text", "formData", "urlEncoded", "base64"])
-      .optional(),
-    redirect: z.enum(["follow", "error", "manual"]).optional(),
-    cache: z
-      .enum([
-        "default",
-        "no-store",
-        "reload",
-        "no-cache",
-        "force-cache",
-        "only-if-cached",
-      ])
-      .optional(),
-    credentials: z.enum(["omit", "same-origin", "include"]).optional(),
-    timeoutMs: z.number().optional(),
-  });
-
-  const httpRequestOutputSchema = z.object({
-    status: z.number(),
-    statusText: z.string().optional(),
-    headers: z.record(z.string(), z.string()),
-    body: z.any().optional(),
-    bodyType: z
-      .enum(["none", "json", "text", "formData", "urlEncoded", "base64"])
-      .optional(),
-    url: z.string().optional(),
-    redirected: z.boolean().optional(),
-    ok: z.boolean().optional(),
-  });
-
   const proxyHandler = createHttpRequestToolHandler({
     baseUrl: BACKEND_URL,
     allowOrigins: [BACKEND_URL],
@@ -106,16 +74,12 @@ export function createServer(): McpServer {
     "http_request",
     {
       description: "Proxy HTTP requests from the app to the Hono backend",
-      inputSchema: httpRequestInputSchema,
-      outputSchema: httpRequestOutputSchema,
+      inputSchema: McpHttpRequestSchema,
+      outputSchema: McpHttpResponseSchema,
       _meta: { ui: { visibility: ["app"] } },
     },
-    async (
-      args: z.infer<typeof httpRequestInputSchema>,
-    ): Promise<CallToolResult> => {
-      // Adapt the signature: registerTool passes args, but proxyHandler expects params
-      return proxyHandler({ name: "http_request", arguments: args });
-    },
+    async (args) =>
+      proxyHandler({ name: "http_request", arguments: args })
   );
 
   registerAppResource(

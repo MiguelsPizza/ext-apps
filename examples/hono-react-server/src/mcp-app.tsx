@@ -10,10 +10,22 @@ import {
 } from "@modelcontextprotocol/ext-apps/react";
 import { initMcpHttp } from "@modelcontextprotocol/ext-apps/http-adapter";
 import { hc } from "hono/client";
-import {
-  getBackendUrl,
-  type McpUiHostContext,
-} from "@modelcontextprotocol/ext-apps";
+import type { McpUiHostContext } from "@modelcontextprotocol/ext-apps";
+
+/**
+ * Extracts the backend URL from MCP host context metadata.
+ */
+function getBackendUrl(context?: McpUiHostContext): string | undefined {
+  if (!context?.toolInfo?.tool?._meta) {
+    return undefined;
+  }
+  const meta = context.toolInfo.tool._meta as {
+    demo?: { backendUrl?: unknown };
+  };
+  return typeof meta.demo?.backendUrl === "string"
+    ? meta.demo.backendUrl
+    : undefined;
+}
 import type { AppType, Item } from "./hono-backend.js";
 
 import "./global.css";
