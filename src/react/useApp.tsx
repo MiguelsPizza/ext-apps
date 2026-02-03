@@ -49,7 +49,11 @@ export interface UseAppOptions {
  * State returned by the {@link useApp `useApp`} hook.
  */
 export interface AppState {
-  /** The connected {@link App `App`} instance, null during initialization */
+  /**
+   * The {@link App `App`} instance, null during initialization.
+   * When running standalone (not in an iframe), the app may be non-null even
+   * if `isConnected` is false.
+   */
   app: App | null;
   /** Whether initialization completed successfully */
   isConnected: boolean;
@@ -129,17 +133,26 @@ export function useApp({
   useEffect(() => {
     let mounted = true;
 
-    async function connect() {
+    async function startConnection() {
       try {
-        const transport = new PostMessageTransport(
-          window.parent,
-          window.parent,
-        );
         const app = new App(appInfo, capabilities);
 
         // Register handlers BEFORE connecting
         onAppCreated?.(app);
 
+        if (!isInIframe()) {
+          if (mounted) {
+            setApp(app);
+            setIsConnected(false);
+            setError(null);
+          }
+          return;
+        }
+
+        const transport = new PostMessageTransport(
+          window.parent,
+          window.parent,
+        );
         await app.connect(transport);
 
         if (mounted) {
@@ -158,7 +171,7 @@ export function useApp({
       }
     }
 
-    connect();
+    startConnection();
 
     return () => {
       mounted = false;
@@ -166,4 +179,12 @@ export function useApp({
   }, []); // Intentionally not including options to avoid reconnection
 
   return { app, isConnected, error };
+}
+
+function isInIframe(): boolean {
+  try {
+    return window.self !== window.top;
+  } catch (error) {
+    return true;
+  }
 }

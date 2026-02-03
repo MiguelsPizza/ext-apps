@@ -139,6 +139,34 @@ export type McpUiClientCapabilitiesSchemaInferredType = z.infer<
   typeof generated.McpUiClientCapabilitiesSchema
 >;
 
+export type McpHttpBodyTypeSchemaInferredType = z.infer<
+  typeof generated.McpHttpBodyTypeSchema
+>;
+
+export type McpHttpMethodSchemaInferredType = z.infer<
+  typeof generated.McpHttpMethodSchema
+>;
+
+export type McpHttpFormFieldTextSchemaInferredType = z.infer<
+  typeof generated.McpHttpFormFieldTextSchema
+>;
+
+export type McpHttpFormFieldBinarySchemaInferredType = z.infer<
+  typeof generated.McpHttpFormFieldBinarySchema
+>;
+
+export type McpHttpFormFieldSchemaInferredType = z.infer<
+  typeof generated.McpHttpFormFieldSchema
+>;
+
+export type McpHttpRequestSchemaInferredType = z.infer<
+  typeof generated.McpHttpRequestSchema
+>;
+
+export type McpHttpResponseSchemaInferredType = z.infer<
+  typeof generated.McpHttpResponseSchema
+>;
+
 export type McpUiMessageRequestSchemaInferredType = z.infer<
   typeof generated.McpUiMessageRequestSchema
 >;
@@ -319,6 +347,28 @@ expectType<spec.McpUiClientCapabilities>(
 expectType<McpUiClientCapabilitiesSchemaInferredType>(
   {} as spec.McpUiClientCapabilities,
 );
+expectType<spec.McpHttpBodyType>({} as McpHttpBodyTypeSchemaInferredType);
+expectType<McpHttpBodyTypeSchemaInferredType>({} as spec.McpHttpBodyType);
+expectType<spec.McpHttpMethod>({} as McpHttpMethodSchemaInferredType);
+expectType<McpHttpMethodSchemaInferredType>({} as spec.McpHttpMethod);
+expectType<spec.McpHttpFormFieldText>(
+  {} as McpHttpFormFieldTextSchemaInferredType,
+);
+expectType<McpHttpFormFieldTextSchemaInferredType>(
+  {} as spec.McpHttpFormFieldText,
+);
+expectType<spec.McpHttpFormFieldBinary>(
+  {} as McpHttpFormFieldBinarySchemaInferredType,
+);
+expectType<McpHttpFormFieldBinarySchemaInferredType>(
+  {} as spec.McpHttpFormFieldBinary,
+);
+expectType<spec.McpHttpFormField>({} as McpHttpFormFieldSchemaInferredType);
+expectType<McpHttpFormFieldSchemaInferredType>({} as spec.McpHttpFormField);
+expectType<spec.McpHttpRequest>({} as McpHttpRequestSchemaInferredType);
+expectType<McpHttpRequestSchemaInferredType>({} as spec.McpHttpRequest);
+expectType<spec.McpHttpResponse>({} as McpHttpResponseSchemaInferredType);
+expectType<McpHttpResponseSchemaInferredType>({} as spec.McpHttpResponse);
 expectType<spec.McpUiMessageRequest>(
   {} as McpUiMessageRequestSchemaInferredType,
 );

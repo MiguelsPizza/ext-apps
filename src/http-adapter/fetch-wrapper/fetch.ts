@@ -14,19 +14,19 @@ import type {
   McpFetchOptions,
   McpFetchProxyOptions,
 } from "./fetch-options.js";
-import type {
-  FetchFunction,
-  McpBodyType,
-  McpFormField,
-  McpHttpRequest,
-  McpHttpResponse,
-} from "../shared/http-types.js";
 import {
-  DEFAULT_TOOL_NAME,
   DEFAULT_INTERCEPT_PATHS,
   DEFAULT_MAX_BODY_SIZE,
   FORBIDDEN_REQUEST_HEADERS,
-} from "../shared/constants.js";
+  type FetchFunction,
+} from "../http-options.js";
+import {
+  HTTP_REQUEST_TOOL_NAME,
+  type McpHttpBodyType,
+  type McpHttpFormField,
+  type McpHttpRequest,
+  type McpHttpResponse,
+} from "../../types.js";
 import {
   buildMcpHttpRequestPayloadFromRequest,
   defaultShouldIntercept,
@@ -38,10 +38,8 @@ import {
   warnNativeFallback,
 } from "../shared/request.js";
 import {
-  extractResponsePayload,
+  extractHttpResponse,
   extractToolError,
-} from "../shared/response.js";
-import {
   fromBase64,
   serializeBodyFromRequest,
   serializeBodyInit,
@@ -86,13 +84,22 @@ export function initMcpFetch(
     throw new Error("global fetch is not available in this environment");
   }
 
-  const mcpFetch = createMcpFetch(app, nativeFetch, options);
+  let active = true;
+
+  const mcpFetch = createMcpFetch(app, nativeFetch, options, () => active);
   if (options.installGlobal ?? true) {
     (globalThis as { fetch: FetchFunction }).fetch = mcpFetch;
   }
 
   return {
     fetch: mcpFetch,
+    stop: () => {
+      active = false;
+    },
+    start: () => {
+      active = true;
+    },
+    isActive: () => active,
     restore: () => {
       if (globalThis.fetch === mcpFetch) {
         (globalThis as { fetch: FetchFunction }).fetch = nativeFetch;
@@ -107,7 +114,7 @@ export function createHttpRequestToolHandler(
   params: CallToolRequest["params"],
   extra?: { signal?: AbortSignal },
 ) => Promise<CallToolResult> {
-  const toolName = options.toolName ?? DEFAULT_TOOL_NAME;
+  const toolName = options.toolName ?? HTTP_REQUEST_TOOL_NAME;
   return async (params, extra) => {
     if (params.name !== toolName) {
       throw new Error(`Unsupported tool: ${params.name}`);
@@ -131,7 +138,7 @@ export function wrapCallToolHandlerWithFetchProxy(
   params: CallToolRequest["params"],
   extra: { signal?: AbortSignal },
 ) => Promise<CallToolResult> {
-  const toolName = options.toolName ?? DEFAULT_TOOL_NAME;
+  const toolName = options.toolName ?? HTTP_REQUEST_TOOL_NAME;
   const proxyHandler = createHttpRequestToolHandler(options);
   return async (params, extra) => {
     if (params.name === toolName) {
@@ -145,8 +152,9 @@ function createMcpFetch(
   app: App,
   nativeFetch: FetchFunction,
   options: McpFetchOptions,
+  isActive: () => boolean,
 ): FetchFunction {
-  const toolName = options.toolName ?? DEFAULT_TOOL_NAME;
+  const toolName = options.toolName ?? HTTP_REQUEST_TOOL_NAME;
   const interceptPaths = options.interceptPaths ?? DEFAULT_INTERCEPT_PATHS;
   const allowAbsoluteUrls = options.allowAbsoluteUrls ?? false;
   const fallbackToNative = options.fallbackToNative ?? true;
@@ -154,11 +162,17 @@ function createMcpFetch(
     options.isMcpApp ?? (() => Boolean(app.getHostCapabilities()?.serverTools));
 
   return async (input: RequestInfo | URL, init?: RequestInit) => {
-    if (init?.signal?.aborted) {
-      throw createAbortError();
+    if (!isActive()) {
+      return nativeFetch(input, init);
     }
 
     const request = new Request(input, init);
+    const requestSignal =
+      init?.signal ?? (input instanceof Request ? input.signal : undefined);
+
+    if (requestSignal?.aborted) {
+      throw createAbortError();
+    }
     const { resolvedUrl, isSameOrigin, path, toolUrl } = getRequestUrlInfo(
       request.url,
       allowAbsoluteUrls,
@@ -188,7 +202,11 @@ function createMcpFetch(
       );
     }
 
-    const { body, bodyType } = await serializeRequestBody(request, init?.body);
+    const { body, bodyType } = await serializeRequestBody(
+      request,
+      init?.body,
+      options.debug,
+    );
     const payload = buildMcpHttpRequestPayloadFromRequest({
       request,
       toolUrl,
@@ -197,7 +215,7 @@ function createMcpFetch(
       timeoutMs: options.timeoutMs,
     });
 
-    const callOptions = init?.signal ? { signal: init.signal } : undefined;
+    const callOptions = requestSignal ? { signal: requestSignal } : undefined;
     const result = await app.callServerTool(
       { name: toolName, arguments: payload },
       callOptions,
@@ -207,15 +225,18 @@ function createMcpFetch(
       throw new Error(extractToolError(result));
     }
 
-    const responsePayload = extractResponsePayload(result);
-    return buildResponse(responsePayload);
+    const responsePayload = extractHttpResponse(result, {
+      debug: options.debug,
+    });
+    return buildResponse(responsePayload, options.debug);
   };
 }
 
 async function serializeRequestBody(
   request: Request,
   initBody: BodyInit | null | undefined,
-): Promise<{ body?: unknown; bodyType?: McpBodyType }> {
+  debug?: boolean,
+): Promise<{ body?: unknown; bodyType?: McpHttpBodyType }> {
   const method = request.method.toUpperCase();
   if (method === "GET" || method === "HEAD") {
     return { bodyType: "none", body: undefined };
@@ -225,6 +246,7 @@ async function serializeRequestBody(
     return await serializeBodyInit(
       initBody,
       request.headers.get("content-type"),
+      { debug },
     );
   }
 
@@ -235,20 +257,22 @@ async function serializeRequestBody(
   return await serializeBodyFromRequest(
     request.clone(),
     request.headers.get("content-type"),
+    { debug },
   );
 }
 
-function buildResponse(payload: McpHttpResponse): Response {
+function buildResponse(payload: McpHttpResponse, debug?: boolean): Response {
   const headers = new Headers(payload.headers ?? {});
   const status = payload.status ?? 200;
   const statusText = payload.statusText ?? "";
-  const body = decodeResponseBody(payload.body, payload.bodyType);
+  const body = decodeResponseBody(payload.body, payload.bodyType, debug);
   return new Response(body, { status, statusText, headers });
 }
 
 function decodeResponseBody(
   body: unknown,
-  bodyType?: McpBodyType,
+  bodyType?: McpHttpBodyType,
+  debug?: boolean,
 ): BodyInit | null {
   if (!bodyType || bodyType === "none") {
     return null;
@@ -274,7 +298,7 @@ function decodeResponseBody(
       if (typeof FormData === "undefined") {
         return body == null ? "" : JSON.stringify(body);
       }
-      return fieldsToFormData(body);
+      return fieldsToFormData(body, debug);
     case "base64":
       return decodeBase64Body(body);
     default:
@@ -282,18 +306,32 @@ function decodeResponseBody(
   }
 }
 
-function fieldsToFormData(body: unknown): FormData {
+function fieldsToFormData(body: unknown, debug?: boolean): FormData {
   const formData = new FormData();
   if (Array.isArray(body)) {
-    for (const entry of body) {
+    let skipped = 0;
+    for (let index = 0; index < body.length; index += 1) {
+      const entry = body[index];
       if (!entry || typeof entry !== "object") {
+        if (debug) {
+          console.debug(
+            `[MCP HTTP] Skipping invalid form field at index ${index}: not an object.`,
+          );
+        }
+        skipped += 1;
         continue;
       }
-      const field = entry as McpFormField;
+      const field = entry as McpHttpFormField;
       if (!field.name) {
+        if (debug) {
+          console.debug(
+            `[MCP HTTP] Skipping form field at index ${index}: missing name.`,
+          );
+        }
+        skipped += 1;
         continue;
       }
-      if (field.data) {
+      if ("data" in field) {
         const bytes = fromBase64(field.data);
         const blob = new Blob([bytes.slice().buffer], {
           type: field.contentType ?? "application/octet-stream",
@@ -306,6 +344,9 @@ function fieldsToFormData(body: unknown): FormData {
         continue;
       }
       formData.append(field.name, field.value ?? "");
+    }
+    if (skipped > 0 && debug) {
+      console.debug(`[MCP HTTP] Skipped ${skipped} invalid form field(s).`);
     }
     return formData;
   }
@@ -341,7 +382,6 @@ function createAbortError(): Error {
   try {
     return new DOMException("The operation was aborted.", "AbortError");
   } catch (e) {
-    // DOMException not available in this environment, using Error fallback
     const error = new Error("The operation was aborted.");
     (error as Error & { name: string }).name = "AbortError";
     return error;
@@ -369,7 +409,7 @@ async function handleProxyRequest(
   enforceBodySizeLimit(args, options);
 
   const headers = buildProxyHeaders(args, options);
-  const body = buildProxyBody(args, headers);
+  const body = buildProxyBody(args, headers, options.debug);
 
   const timeoutMs = args.timeoutMs ?? options.timeoutMs;
   const timeoutSignal = timeoutMs ? createTimeoutSignal(timeoutMs) : undefined;
@@ -386,7 +426,7 @@ async function handleProxyRequest(
       signal: mergedSignal,
     });
 
-    return await serializeProxyResponse(response);
+    return await serializeProxyResponse(response, options.debug);
   } finally {
     cleanup();
   }
@@ -448,7 +488,7 @@ function enforceBodySizeLimit(
   }
 }
 
-function estimateBodySize(body: unknown, bodyType?: McpBodyType): number {
+function estimateBodySize(body: unknown, bodyType?: McpHttpBodyType): number {
   if (body == null || bodyType === "none") {
     return 0;
   }
@@ -458,6 +498,18 @@ function estimateBodySize(body: unknown, bodyType?: McpBodyType): number {
       return Math.ceil(body.length * 0.75);
     }
     return new TextEncoder().encode(body).length;
+  }
+
+  if (
+    bodyType === "base64" &&
+    body &&
+    typeof body === "object" &&
+    "data" in body
+  ) {
+    const data = (body as { data?: unknown }).data;
+    if (typeof data === "string") {
+      return Math.ceil(data.length * 0.75);
+    }
   }
 
   if (Array.isArray(body)) {
@@ -479,15 +531,31 @@ function buildProxyHeaders(
     typeof options.headers === "function"
       ? options.headers(args)
       : (options.headers ?? {});
-  const headers = new Headers({
-    ...baseHeaders,
-    ...(args.headers ?? {}),
-  });
+  const headers = new Headers();
+  const applyHeaders = (source: HeadersInit | undefined) => {
+    if (!source) {
+      return;
+    }
+    const normalized = new Headers(source);
+    normalized.forEach((value, key) => {
+      headers.set(key, value);
+    });
+  };
+  applyHeaders(baseHeaders);
+  applyHeaders(args.headers);
 
   const forbiddenHeaders =
     options.forbiddenHeaders ?? FORBIDDEN_REQUEST_HEADERS;
   for (const forbidden of forbiddenHeaders) {
+    if (headers.has(forbidden)) {
+      console.warn(`Refused to set unsafe header "${forbidden}"`);
+    }
     headers.delete(forbidden);
+  }
+
+  if (args.bodyType === "formData") {
+    headers.delete("content-type");
+    headers.delete("content-length");
   }
 
   if (args.bodyType === "json" && !headers.has("content-type")) {
@@ -504,6 +572,7 @@ function buildProxyHeaders(
 function buildProxyBody(
   args: McpHttpRequest,
   headers: Headers,
+  debug?: boolean,
 ): BodyInit | undefined {
   const method = (args.method ?? "GET").toUpperCase();
   if (method === "GET" || method === "HEAD") {
@@ -544,7 +613,7 @@ function buildProxyBody(
       if (typeof FormData === "undefined") {
         return undefined;
       }
-      return fieldsToFormData(args.body);
+      return fieldsToFormData(args.body, debug);
     }
     case "base64": {
       let bytes: Uint8Array | null = null;
@@ -569,7 +638,7 @@ function buildProxyBody(
   }
 }
 
-function inferBodyType(body: unknown): McpBodyType {
+function inferBodyType(body: unknown): McpHttpBodyType {
   if (body == null) {
     return "none";
   }
@@ -584,6 +653,7 @@ function inferBodyType(body: unknown): McpBodyType {
 
 async function serializeProxyResponse(
   response: Response,
+  debug?: boolean,
 ): Promise<McpHttpResponse> {
   const headers = headersToRecord(response.headers);
   const status = response.status;
@@ -608,13 +678,17 @@ async function serializeProxyResponse(
 
   if (contentType.includes("application/json")) {
     const text = await response.text();
-    const parsed = safeJsonParse(text);
+    const parsed = safeJsonParse(text, {
+      context: "proxy response",
+      debug,
+    });
+    const isJson = parsed !== undefined;
     return {
       status,
       statusText,
       headers,
-      body: parsed ?? text,
-      bodyType: parsed ? "json" : "text",
+      body: isJson ? parsed : text,
+      bodyType: isJson ? "json" : "text",
       url,
       redirected,
       ok,

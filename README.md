@@ -91,6 +91,9 @@ The [`examples/`](https://github.com/modelcontextprotocol/ext-apps/tree/main/exa
 | [![Basic](examples/basic-server-react/grid-cell.png "Starter template")](https://github.com/modelcontextprotocol/ext-apps/tree/main/examples/basic-server-react) | The same app built with different frameworks — pick your favorite!<br><br>[React](https://github.com/modelcontextprotocol/ext-apps/tree/main/examples/basic-server-react) · [Vue](https://github.com/modelcontextprotocol/ext-apps/tree/main/examples/basic-server-vue) · [Svelte](https://github.com/modelcontextprotocol/ext-apps/tree/main/examples/basic-server-svelte) · [Preact](https://github.com/modelcontextprotocol/ext-apps/tree/main/examples/basic-server-preact) · [Solid](https://github.com/modelcontextprotocol/ext-apps/tree/main/examples/basic-server-solid) · [Vanilla JS](https://github.com/modelcontextprotocol/ext-apps/tree/main/examples/basic-server-vanillajs) |
 <!-- prettier-ignore-end -->
 
+Additional example:
+- [**Hono React Server**](https://github.com/modelcontextprotocol/ext-apps/tree/main/examples/hono-react-server) — Dual-mode HTTP pattern (Hono + React, type-safe `hc` client).
+
 ### Running the Examples
 
 #### With basic-host
@@ -414,6 +417,13 @@ Then configure your MCP client to build and run the local server. Replace `~/cod
         "cd ~/code/ext-apps/examples/customer-segmentation-server && npm run build >&2 && node dist/index.js --stdio"
       ]
     },
+    "hono-react": {
+      "command": "bash",
+      "args": [
+        "-c",
+        "cd ~/code/ext-apps/examples/hono-react-server && npm run build >&2 && node dist/main.js --stdio"
+      ]
+    },
     "map": {
       "command": "bash",
       "args": [
@@ -510,5 +520,6 @@ This configuration rebuilds each server on launch, ensuring your local changes a
 
 - [Quickstart Guide](https://modelcontextprotocol.github.io/ext-apps/api/documents/Quickstart.html)
 - [API Documentation](https://modelcontextprotocol.github.io/ext-apps/api/)
+- [Project Notes](./docs/project-notes.md)
 - [Specification (2026-01-26)](https://github.com/modelcontextprotocol/ext-apps/blob/main/specification/2026-01-26/apps.mdx) ([Draft](https://github.com/modelcontextprotocol/ext-apps/blob/main/specification/draft/apps.mdx))
 - [SEP-1865 Discussion](https://github.com/modelcontextprotocol/modelcontextprotocol/pull/1865)

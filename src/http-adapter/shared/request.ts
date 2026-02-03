@@ -1,7 +1,7 @@
 /**
  * Request utilities shared across HTTP adapters.
  */
-import type { McpBodyType, McpHttpRequest } from "./http-types.js";
+import type { McpHttpBodyType, McpHttpRequest } from "../../types.js";
 
 /**
  * Gets the base URL for resolving relative URLs.
@@ -135,7 +135,7 @@ export function buildMcpHttpRequestPayload({
   url: string;
   headers?: Record<string, string>;
   body?: unknown;
-  bodyType?: McpBodyType;
+  bodyType?: McpHttpBodyType;
   redirect?: RequestRedirect;
   cache?: RequestCache;
   credentials?: RequestCredentials;
@@ -167,7 +167,7 @@ export function buildMcpHttpRequestPayloadFromRequest({
   request: Request;
   toolUrl: string;
   body?: unknown;
-  bodyType?: McpBodyType;
+  bodyType?: McpHttpBodyType;
   timeoutMs?: number;
 }): McpHttpRequest {
   return buildMcpHttpRequestPayload({

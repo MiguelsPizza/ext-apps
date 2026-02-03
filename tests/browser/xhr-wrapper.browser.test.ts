@@ -111,7 +111,6 @@ class FakeXMLHttpRequest extends EventTarget {
   }
 
   overrideMimeType(_mime: string): void {
-    // no-op
   }
 }
 
@@ -410,5 +409,522 @@ describe("xhr-wrapper (browser)", () => {
       { name: "name", value: "John" },
       { name: "age", value: "30" },
     ]);
+  });
+
+  it("handles text response with default responseType", async () => {
+    const toolResult: CallToolResult = {
+      content: [],
+      structuredContent: {
+        status: 200,
+        headers: { "content-type": "text/plain" },
+        body: "hello",
+        bodyType: "text",
+      },
+    };
+    const { app } = createAppStub(toolResult);
+
+    const handle = initMcpXhr(app, { installGlobal: false });
+    const xhr = new handle.XMLHttpRequest();
+
+    const loaded = new Promise<void>((resolve, reject) => {
+      xhr.onload = () => resolve();
+      xhr.onerror = () => reject(new Error("XHR error"));
+    });
+
+    xhr.open("GET", "/api/text");
+    xhr.send();
+
+    await loaded;
+
+    expect(xhr.responseText).toBe("hello");
+    expect(xhr.response).toBe("hello");
+  });
+
+  it("handles blob responseType", async () => {
+    const bytes = new Uint8Array([4, 5, 6]);
+    const base64 = btoa(String.fromCharCode(...bytes));
+    const toolResult: CallToolResult = {
+      content: [],
+      structuredContent: {
+        status: 200,
+        headers: { "content-type": "application/octet-stream" },
+        body: base64,
+        bodyType: "base64",
+      },
+    };
+    const { app } = createAppStub(toolResult);
+
+    const handle = initMcpXhr(app, { installGlobal: false });
+    const xhr = new handle.XMLHttpRequest();
+    xhr.responseType = "blob";
+
+    const loaded = new Promise<void>((resolve, reject) => {
+      xhr.onload = () => resolve();
+      xhr.onerror = () => reject(new Error("XHR error"));
+    });
+
+    xhr.open("GET", "/api/blob");
+    xhr.send();
+
+    await loaded;
+
+    const blob = xhr.response as Blob;
+    const buffer = await blob.arrayBuffer();
+    expect(new Uint8Array(buffer)).toEqual(bytes);
+  });
+
+  it("returns null for document responseType", async () => {
+    const toolResult: CallToolResult = {
+      content: [],
+      structuredContent: {
+        status: 200,
+        headers: { "content-type": "text/plain" },
+        body: "ok",
+        bodyType: "text",
+      },
+    };
+    const { app } = createAppStub(toolResult);
+
+    const handle = initMcpXhr(app, { installGlobal: false });
+    const xhr = new handle.XMLHttpRequest();
+    xhr.responseType = "document";
+
+    const loaded = new Promise<void>((resolve, reject) => {
+      xhr.onload = () => resolve();
+      xhr.onerror = () => reject(new Error("XHR error"));
+    });
+
+    xhr.open("GET", "/api/doc");
+    xhr.send();
+
+    await loaded;
+
+    expect(xhr.response).toBeNull();
+  });
+
+  it("fires readystatechange events in order", async () => {
+    const toolResult: CallToolResult = {
+      content: [],
+      structuredContent: {
+        status: 200,
+        headers: { "content-type": "text/plain" },
+        body: "ok",
+        bodyType: "text",
+      },
+    };
+    const { app } = createAppStub(toolResult);
+
+    const handle = initMcpXhr(app, { installGlobal: false });
+    const xhr = new handle.XMLHttpRequest();
+
+    const states: number[] = [];
+    xhr.onreadystatechange = () => {
+      states.push(xhr.readyState);
+    };
+
+    const loaded = new Promise<void>((resolve, reject) => {
+      xhr.onload = () => resolve();
+      xhr.onerror = () => reject(new Error("XHR error"));
+    });
+
+    xhr.open("GET", "/api/state");
+    xhr.send();
+
+    await loaded;
+
+    expect(states).toEqual([1, 2, 3, 4]);
+  });
+
+  it("fires loadstart, progress, load, and loadend events", async () => {
+    const toolResult: CallToolResult = {
+      content: [],
+      structuredContent: {
+        status: 200,
+        headers: { "content-type": "text/plain" },
+        body: "hello",
+        bodyType: "text",
+      },
+    };
+    const { app } = createAppStub(toolResult);
+
+    const handle = initMcpXhr(app, { installGlobal: false });
+    const xhr = new handle.XMLHttpRequest();
+
+    const events: string[] = [];
+    xhr.onloadstart = () => events.push("loadstart");
+    xhr.onprogress = () => events.push("progress");
+    xhr.onload = () => events.push("load");
+    xhr.onloadend = () => events.push("loadend");
+
+    const loaded = new Promise<void>((resolve, reject) => {
+      xhr.onload = () => {
+        events.push("load");
+        resolve();
+      };
+      xhr.onerror = () => reject(new Error("XHR error"));
+    });
+
+    xhr.open("GET", "/api/events");
+    xhr.send();
+
+    await loaded;
+
+    expect(events).toEqual(["loadstart", "progress", "load", "loadend"]);
+  });
+
+  it("fires error when tool returns isError", async () => {
+    const toolResult: CallToolResult = {
+      isError: true,
+      content: [{ type: "text", text: "boom" }],
+    };
+    const { app } = createAppStub(toolResult);
+
+    const handle = initMcpXhr(app, { installGlobal: false });
+    const xhr = new handle.XMLHttpRequest();
+
+    const errored = new Promise<void>((resolve) => {
+      xhr.onerror = () => resolve();
+    });
+
+    xhr.open("GET", "/api/error");
+    xhr.send();
+
+    await errored;
+
+    expect(xhr.status).toBe(0);
+  });
+
+  it("fires timeout when request exceeds timeout", async () => {
+    vi.useFakeTimers();
+    try {
+      const callServerTool = vi.fn(
+        (_params: unknown, extra?: { signal?: AbortSignal }) =>
+          new Promise<CallToolResult>((_resolve, reject) => {
+            extra?.signal?.addEventListener("abort", () => {
+              reject(
+                new DOMException("The operation was aborted.", "AbortError"),
+              );
+            });
+          }),
+      );
+      const app = {
+        callServerTool,
+        getHostCapabilities: () => ({ serverTools: {} }),
+      } as unknown as App;
+
+      const handle = initMcpXhr(app, { installGlobal: false });
+      const xhr = new handle.XMLHttpRequest();
+      xhr.timeout = 10;
+
+      const timedOut = new Promise<void>((resolve) => {
+        xhr.ontimeout = () => resolve();
+      });
+
+      xhr.open("GET", "/api/timeout");
+      xhr.send();
+
+      await vi.advanceTimersByTimeAsync(20);
+      await timedOut;
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("aborts requests and fires abort event", async () => {
+    const pending = new Promise<CallToolResult>(() => {});
+    const callServerTool = vi.fn().mockReturnValue(pending);
+    const app = {
+      callServerTool,
+      getHostCapabilities: () => ({ serverTools: {} }),
+    } as unknown as App;
+
+    const handle = initMcpXhr(app, { installGlobal: false });
+    const xhr = new handle.XMLHttpRequest();
+
+    const aborted = new Promise<void>((resolve) => {
+      xhr.onabort = () => resolve();
+    });
+
+    xhr.open("GET", "/api/abort");
+    xhr.send();
+    xhr.abort();
+
+    await aborted;
+
+    expect(xhr.readyState).toBe(0);
+  });
+
+  it("throws when setRequestHeader is called before open", () => {
+    const { app } = createAppStub({
+      content: [],
+      structuredContent: {
+        status: 200,
+        headers: { "content-type": "text/plain" },
+        body: "ok",
+        bodyType: "text",
+      },
+    });
+
+    const handle = initMcpXhr(app, { installGlobal: false });
+    const xhr = new handle.XMLHttpRequest();
+
+    expect(() => xhr.setRequestHeader("X-Test", "1")).toThrow(
+      "The object's state must be OPENED",
+    );
+  });
+
+  it("throws when setRequestHeader is called after send", async () => {
+    const { app } = createAppStub({
+      content: [],
+      structuredContent: {
+        status: 200,
+        headers: { "content-type": "text/plain" },
+        body: "ok",
+        bodyType: "text",
+      },
+    });
+
+    const handle = initMcpXhr(app, { installGlobal: false });
+    const xhr = new handle.XMLHttpRequest();
+
+    const loaded = new Promise<void>((resolve, reject) => {
+      xhr.onload = () => resolve();
+      xhr.onerror = () => reject(new Error("XHR error"));
+    });
+
+    xhr.open("GET", "/api/header");
+    xhr.send();
+
+    expect(() => xhr.setRequestHeader("X-Test", "1")).toThrow(
+      "send() has already been called",
+    );
+
+    await loaded;
+  });
+
+  it("throws when send is called before open", () => {
+    const { app } = createAppStub({
+      content: [],
+      structuredContent: {
+        status: 200,
+        headers: { "content-type": "text/plain" },
+        body: "ok",
+        bodyType: "text",
+      },
+    });
+
+    const handle = initMcpXhr(app, { installGlobal: false });
+    const xhr = new handle.XMLHttpRequest();
+
+    expect(() => xhr.send()).toThrow("The object's state must be OPENED");
+  });
+
+  it("throws when send is called twice", async () => {
+    const { app } = createAppStub({
+      content: [],
+      structuredContent: {
+        status: 200,
+        headers: { "content-type": "text/plain" },
+        body: "ok",
+        bodyType: "text",
+      },
+    });
+
+    const handle = initMcpXhr(app, { installGlobal: false });
+    const xhr = new handle.XMLHttpRequest();
+
+    const loaded = new Promise<void>((resolve, reject) => {
+      xhr.onload = () => resolve();
+      xhr.onerror = () => reject(new Error("XHR error"));
+    });
+
+    xhr.open("GET", "/api/double");
+    xhr.send();
+
+    expect(() => xhr.send()).toThrow("send() has already been called");
+
+    await loaded;
+  });
+
+  it("uses custom toolName option", async () => {
+    const toolResult: CallToolResult = {
+      content: [],
+      structuredContent: {
+        status: 200,
+        headers: { "content-type": "text/plain" },
+        body: "ok",
+        bodyType: "text",
+      },
+    };
+    const { app, callServerTool } = createAppStub(toolResult);
+
+    const handle = initMcpXhr(app, {
+      installGlobal: false,
+      toolName: "custom_request",
+    });
+    const xhr = new handle.XMLHttpRequest();
+
+    const loaded = new Promise<void>((resolve, reject) => {
+      xhr.onload = () => resolve();
+      xhr.onerror = () => reject(new Error("XHR error"));
+    });
+
+    xhr.open("GET", "/api/custom");
+    xhr.send();
+
+    await loaded;
+
+    const call = callServerTool.mock.calls[0]?.[0] as {
+      name: string;
+      arguments: Record<string, unknown>;
+    };
+    expect(call.name).toBe("custom_request");
+  });
+
+  it("respects custom shouldIntercept", () => {
+    globalThis.XMLHttpRequest =
+      FakeXMLHttpRequest as unknown as typeof XMLHttpRequest;
+
+    const { app, callServerTool } = createAppStub({
+      content: [],
+      structuredContent: {
+        status: 200,
+        headers: { "content-type": "text/plain" },
+        body: "ok",
+        bodyType: "text",
+      },
+    });
+
+    const handle = initMcpXhr(app, {
+      installGlobal: false,
+      shouldIntercept: () => false,
+    });
+    const xhr = new handle.XMLHttpRequest();
+    xhr.open("GET", "/api/skip");
+    xhr.send();
+
+    expect(callServerTool).not.toHaveBeenCalled();
+    expect(FakeXMLHttpRequest.lastRequest?.url).toBe("/api/skip");
+  });
+
+  it("includes query strings in tool url", async () => {
+    const toolResult: CallToolResult = {
+      content: [],
+      structuredContent: {
+        status: 200,
+        headers: { "content-type": "text/plain" },
+        body: "ok",
+        bodyType: "text",
+      },
+    };
+    const { app, callServerTool } = createAppStub(toolResult);
+
+    const handle = initMcpXhr(app, { installGlobal: false });
+    const xhr = new handle.XMLHttpRequest();
+
+    const loaded = new Promise<void>((resolve, reject) => {
+      xhr.onload = () => resolve();
+      xhr.onerror = () => reject(new Error("XHR error"));
+    });
+
+    xhr.open("GET", "/api/search?q=test&limit=1");
+    xhr.send();
+
+    await loaded;
+
+    const call = callServerTool.mock.calls[0]?.[0] as {
+      name: string;
+      arguments: Record<string, unknown>;
+    };
+    expect(call.arguments.url).toBe("/api/search?q=test&limit=1");
+  });
+
+  it("replaces global XMLHttpRequest when installGlobal is true", () => {
+    const originalXhr = globalThis.XMLHttpRequest;
+    const toolResult: CallToolResult = {
+      content: [],
+      structuredContent: {
+        status: 200,
+        headers: { "content-type": "text/plain" },
+        body: "ok",
+        bodyType: "text",
+      },
+    };
+    const { app } = createAppStub(toolResult);
+
+    try {
+      const handle = initMcpXhr(app, { installGlobal: true });
+      expect(globalThis.XMLHttpRequest).toBe(handle.XMLHttpRequest);
+      handle.restore();
+      expect(globalThis.XMLHttpRequest).toBe(originalXhr);
+    } finally {
+      globalThis.XMLHttpRequest = originalXhr;
+    }
+  });
+
+  it("stop() pauses interception and isActive() returns false", () => {
+    globalThis.XMLHttpRequest =
+      FakeXMLHttpRequest as unknown as typeof XMLHttpRequest;
+
+    const toolResult: CallToolResult = {
+      content: [],
+      structuredContent: {
+        status: 200,
+        headers: { "content-type": "application/json" },
+        body: { ok: true },
+        bodyType: "json",
+      },
+    };
+    const { app, callServerTool } = createAppStub(toolResult);
+
+    const handle = initMcpXhr(app, { installGlobal: false });
+
+    expect(handle.isActive()).toBe(true);
+
+    handle.stop();
+    expect(handle.isActive()).toBe(false);
+
+    const xhr = new handle.XMLHttpRequest();
+    xhr.open("GET", "/api/test");
+    xhr.send();
+
+    expect(callServerTool).not.toHaveBeenCalled();
+    expect(FakeXMLHttpRequest.lastRequest?.url).toBe("/api/test");
+  });
+
+  it("start() resumes interception after stop()", async () => {
+    const toolResult: CallToolResult = {
+      content: [],
+      structuredContent: {
+        status: 200,
+        headers: { "content-type": "application/json" },
+        body: { ok: true },
+        bodyType: "json",
+      },
+    };
+    const { app, callServerTool } = createAppStub(toolResult);
+
+    const handle = initMcpXhr(app, { installGlobal: false });
+
+    handle.stop();
+    expect(handle.isActive()).toBe(false);
+
+    handle.start();
+    expect(handle.isActive()).toBe(true);
+
+    const xhr = new handle.XMLHttpRequest();
+    xhr.responseType = "json";
+
+    const loaded = new Promise<void>((resolve, reject) => {
+      xhr.onload = () => resolve();
+      xhr.onerror = () => reject(new Error("XHR error"));
+    });
+
+    xhr.open("GET", "/api/test");
+    xhr.send();
+
+    await loaded;
+
+    expect(callServerTool).toHaveBeenCalledTimes(1);
   });
 });

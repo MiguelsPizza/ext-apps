@@ -1,6 +1,5 @@
 import {
   type RequestOptions,
-  mergeCapabilities,
   Protocol,
   ProtocolOptions,
 } from "@modelcontextprotocol/sdk/shared/protocol.js";
@@ -17,8 +16,6 @@ import {
   ListToolsResult,
   LoggingMessageNotification,
   PingRequestSchema,
-  Request,
-  Result,
   Tool,
   ToolAnnotations,
   ToolListChangedNotification,
@@ -242,15 +239,6 @@ export class App extends Protocol<AppRequest, AppNotification, AppResult> {
     // Set up default handler to update _hostContext when notifications arrive.
     // Users can override this by setting onhostcontextchanged.
     this.onhostcontextchanged = () => {};
-  }
-
-  private registerCapabilities(capabilities: McpUiAppCapabilities): void {
-    if (this.transport) {
-      throw new Error(
-        "Cannot register capabilities after transport is established",
-      );
-    }
-    this._capabilities = mergeCapabilities(this._capabilities, capabilities);
   }
 
   registerTool<

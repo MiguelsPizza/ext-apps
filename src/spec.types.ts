@@ -766,3 +766,134 @@ export interface McpUiClientCapabilities {
    */
   mimeTypes?: string[];
 }
+
+/**
+ * @description Body encoding type for http_request tool.
+ *
+ * - `"none"` - No body (explicit empty body)
+ * - `"json"` - JSON-serializable value, sent as `application/json`
+ * - `"text"` - Plain text string
+ * - `"formData"` - Array of {@link McpHttpFormField} entries
+ * - `"urlEncoded"` - URL-encoded string (key=value&key2=value2)
+ * - `"base64"` - Binary data as base64-encoded string
+ */
+export type McpHttpBodyType =
+  | "none"
+  | "json"
+  | "text"
+  | "formData"
+  | "urlEncoded"
+  | "base64";
+
+/**
+ * @description Standard HTTP methods.
+ */
+export type McpHttpMethod =
+  | "GET"
+  | "POST"
+  | "PUT"
+  | "DELETE"
+  | "PATCH"
+  | "HEAD"
+  | "OPTIONS";
+
+/**
+ * @description Text form field for multipart/form-data requests.
+ */
+export interface McpHttpFormFieldText {
+  /** @description Field name. */
+  name: string;
+  /** @description Text value for this field. */
+  value: string;
+}
+
+/**
+ * @description Binary/file form field for multipart/form-data requests.
+ */
+export interface McpHttpFormFieldBinary {
+  /** @description Field name. */
+  name: string;
+  /** @description Base64-encoded binary data. */
+  data: string;
+  /** @description Original filename (for file uploads). */
+  filename?: string;
+  /** @description MIME type of the file. */
+  contentType?: string;
+}
+
+/**
+ * @description Form field for formData body type.
+ * Either a text field with `value`, or a binary/file field with `data`.
+ */
+export type McpHttpFormField = McpHttpFormFieldText | McpHttpFormFieldBinary;
+
+/**
+ * @description HTTP request payload for http_request tool.
+ * Uses browser-compatible types where possible.
+ */
+export interface McpHttpRequest {
+  /**
+   * @description HTTP method. Defaults to "GET".
+   * Standard HTTP methods or custom strings.
+   */
+  method?: string;
+  /** @description Request URL. */
+  url: string;
+  /** @description Request headers as key-value pairs. */
+  headers?: Record<string, string>;
+  /** @description Request body. Type depends on bodyType. */
+  body?: unknown;
+  /** @description Body encoding type. */
+  bodyType?: McpHttpBodyType;
+  /** @description Redirect handling. Matches browser RequestInit.redirect semantics. */
+  redirect?: "follow" | "error" | "manual";
+  /** @description Cache mode. Matches browser RequestInit.cache semantics. */
+  cache?:
+    | "default"
+    | "no-store"
+    | "reload"
+    | "no-cache"
+    | "force-cache"
+    | "only-if-cached";
+  /** @description Credentials mode. Matches browser RequestInit.credentials semantics. */
+  credentials?: "omit" | "same-origin" | "include";
+  /** @description Request timeout in milliseconds. */
+  timeoutMs?: number;
+  /**
+   * Index signature for MCP SDK compatibility.
+   * Allows additional properties for forward compatibility.
+   */
+  [key: string]: unknown;
+}
+
+/**
+ * @description HTTP response payload from http_request tool.
+ */
+export interface McpHttpResponse {
+  /** @description HTTP status code. */
+  status: number;
+  /** @description HTTP status text (e.g., "OK", "Not Found"). */
+  statusText?: string;
+  /** @description Response headers as key-value pairs. */
+  headers?: Record<string, string>;
+  /** @description Response body. Type depends on bodyType. */
+  body?: unknown;
+  /** @description Body encoding type. */
+  bodyType?: McpHttpBodyType;
+  /** @description Final URL after redirects. */
+  url?: string;
+  /** @description True if the request was redirected. */
+  redirected?: boolean;
+  /** @description True if status is 200-299. */
+  ok?: boolean;
+  /**
+   * Index signature for MCP SDK compatibility.
+   * Allows additional properties for forward compatibility.
+   */
+  [key: string]: unknown;
+}
+
+/**
+ * Default tool name for HTTP request proxying.
+ */
+export const HTTP_REQUEST_TOOL_NAME = "http_request" as const;

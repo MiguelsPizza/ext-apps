@@ -167,6 +167,20 @@ Instead of custom tool registration, ext-apps should provide:
 
 These are already solved by WebMCP with a path to browser standardization.
 
+## Server-Side Extensions (Language/Runtimes)
+
+**MCP stays language-agnostic** — the only fixed contract is the JSON shape of the tool call/result.
+That means the server-side piece can be a **small, runtime-specific extension** that adapts the
+`http_request` contract to the host language’s native HTTP client (Ruby, C#, Go, etc.).
+
+Think of it as the server-side sibling of the app-side fetch/XHR wrapper:
+
+- **App-side**: JS fetch/XHR wrapper → `http_request` tool call
+- **Server-side**: `http_request` tool handler → native HTTP request/response
+
+This keeps the spec portable while letting each ecosystem implement the most natural adapter
+without forcing web APIs onto non-JS runtimes.
+
 ## Summary
 
 |                       | Current Model            | Proposed Model                          |

@@ -81,9 +81,25 @@ If a host **explicitly** embeds external UI at its origin (opt‑in), direct fet
 The `http_request` tool is a **transport primitive**, not a semantic action. It exists to move requests across the host boundary with auditability and policy enforcement.
 
 - **Model-facing semantics** → WebMCP tools (`navigator.modelContext`)
-- **Backend transport** → `http_request` (app‑only)
+- **Backend transport** → `http_request` (app-only)
 
-This avoids per‑endpoint tool definitions while keeping full host observability.
+This avoids per-endpoint tool definitions while keeping full host observability.
+
+## UI-only Server Tools vs HTTP Adapter
+
+There’s a tempting alternative to the HTTP adapter: define **“UI-only” MCP tools** on the server that are callable from the widget but never exposed to the model.
+In practice, this adds complexity without real benefit when the action is simply “make a backend request.”
+
+**Why the HTTP adapter is the better fit for UI-only backend calls:**
+
+- **Matches web standards:** Web apps already use `fetch()`/`XMLHttpRequest`. Reusing that surface keeps apps portable and idiomatic.
+- **Avoids fake semantics:** Defining a tool for “next page” or “submit” that the model will never call is just extra ceremony.
+- **Preserves auditability:** The host still mediates requests via MCP; nothing bypasses the trust boundary.
+- **Scales better:** You don’t need a tool for every UI affordance — the adapter covers all normal HTTP traffic.
+
+**Rule of thumb:**  
+If the action is **model-facing**, use a WebMCP tool.  
+If the action is **just a backend request from the UI**, use the HTTP adapter.
 
 ## Two Communication Channels
 
