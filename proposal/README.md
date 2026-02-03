@@ -29,6 +29,7 @@ The result: **developers write normal web apps** that work standalone or as MCP 
 
 | Document                                                     | Description                                    |
 | ------------------------------------------------------------ | ---------------------------------------------- |
+| [00-sep-outline.md](./00-sep-outline.md)                     | SEP-style outline mapping this proposal        |
 | [01-vision.md](./01-vision.md)                               | High-level concept and motivation              |
 | [02-current-architecture.md](./02-current-architecture.md)   | How MCP Apps work today (PR #72)               |
 | [03-webmcp-overview.md](./03-webmcp-overview.md)             | WebMCP standard and polyfill                   |
@@ -40,6 +41,7 @@ The result: **developers write normal web apps** that work standalone or as MCP 
 | [09-complexity-analysis.md](./09-complexity-analysis.md)     | Current model vs. proposed (honest comparison) |
 | [10-counterarguments.md](./10-counterarguments.md)           | Addressing legitimate concerns                 |
 | [11-edge-cases.md](./11-edge-cases.md)                       | Protocols, transports, and limitations         |
+| [12-dual-mode-pattern.md](./12-dual-mode-pattern.md)         | Dev vs prod: direct HTTP or MCP proxied        |
 
 ## Quick Comparison
 
@@ -111,7 +113,10 @@ navigator.modelContext.registerTool({
 2. **WebMCP for tool registration** — Use `navigator.modelContext` instead of `app.registerTool()`
 3. **fetch() for backend communication** — Wrapper converts to MCP, no per-endpoint server tools needed
 4. **Portable apps** — Same app runs as standalone website, MCP app, or PWA
-5. **Standards-aligned** — WebMCP is on track for W3C standardization
+5. **Web-native UI contract** — Fetch-first; HTTP semantics even in-process; WebMCP aligns with W3C standardization
+6. **Language-agnostic server adapters** — The `http_request` contract is JSON; each runtime adapts it to native HTTP clients
+7. **Contracts via OpenAPI/JSON Schema** — Per-route inputs/outputs preserve auditability and validation
+8. **MCP primitives remain for host needs** — Tools/resources handle UI mounting, model-facing actions, and large/binary data
 
 **Note:** UI-control tools (like map's `navigate-to`) exist in both approaches — we just use WebMCP to register them instead of `app.registerTool()`.
 
@@ -152,6 +157,19 @@ We keep everything as auditable MCP JSON-RPC while making it invisible to develo
 1. **WebMCP tools** — Model-facing tools registered via `navigator.modelContext`
 2. **Fetch wrapper** — Converts `fetch()` to `callServerTool('http_request')`
 3. **`http_request` server tool** — App-only (`visibility: ["app"]`), transport primitive for backend calls
+
+### UI-only server tools vs HTTP adapter
+
+It’s tempting to define **UI-only MCP tools** on the server (callable by the widget but never exposed to the model).
+For backend requests, this creates extra tool semantics without real value. The HTTP adapter is the cleaner fit:
+
+- **Matches web standards** (`fetch`/`XMLHttpRequest`), so apps remain idiomatic and portable
+- **Avoids fake semantics** (no tool per UI affordance)
+- **Keeps auditability** (host still mediates requests via MCP)
+
+**Rule of thumb:**  
+Model-facing actions → WebMCP tools.  
+Backend requests from UI → HTTP adapter.
 
 ```
 Model → WebMCP Tool → App Logic → fetch() → callServerTool('http_request') → Host → MCP Server → Backend
@@ -211,6 +229,35 @@ Use `examples/basic-server-vanillajs`:
 2. E2E test: model tool and user click hit the same function.
 3. Regression test: native fetch still works in standalone dev mode.
 
+## Dual-Mode Development
+
+The http-adapter enables a powerful development pattern: **the same app code works in both dev and prod**.
+
+- **Development:** `fetch()` → HTTP backend (direct) — normal web dev experience
+- **Production:** `fetch()` → MCP wrapper → Host → Server → `http_request` → HTTP backend
+
+See [12-dual-mode-pattern.md](./12-dual-mode-pattern.md) for details and `examples/hono-react-server/` for a working example.
+
+## Open Questions
+
+These are exploratory ideas to preserve per-action security/intent while keeping a single HTTP-style transport. They apply whether `http_request` is routed to a real HTTP backend or deserialized and dispatched to in-process handlers (e.g., Hono or a switch statement). This likely needs broader review before committing to any direction.
+
+- **Optional OpenAPI / JSON Schema contract** for UI routes. Even if requests never hit a network, the spec can define per-route inputs/outputs, status codes, and error shapes.
+- **Explicit route registry** (method + path → schema + handler). Validate request/response bodies per route to match the tool-level safety guarantees.
+- **Allowlist + policy gates**: `allowPaths`, `allowMethods`, `allowHeaders`, max body size; reject unknown paths early.
+- **Action metadata mapping**: map routes to action names for audit logs (e.g., `/api/stats` → `poll-system-stats`) to preserve semantic intent.
+- **App-instance scoping**: require an app-instance token/header injected by the host; reject mismatched or missing scopes.
+- **Response type restrictions**: explicit content types; require JSON by default; opt-in for binary.
+- **Rate limiting / throttling**: per-route limits for polling endpoints.
+
+**Discussion prompt (draft):**  
+We’re exploring how to preserve tool-level auditability/security when UI actions go through a single `http_request` transport (often routed in-process, not necessarily over the network). We’d love feedback on the right level of standardization and host enforcement.
+
+- Should we require an OpenAPI/JSON Schema spec for UI routes, or keep it optional?
+- How should hosts interpret “action intent” for logging/approvals when everything is an HTTP route?
+- What policy gates are essential (allowlists, scopes, rate limits, content-type restrictions)?
+- Are there edge cases (streaming, chunked reads, binary) that should remain MCP-native?
+
 ## Status
 
 - [x] Vision document complete
@@ -224,6 +271,9 @@ Use `examples/basic-server-vanillajs`:
 - [x] Complexity analysis complete
 - [x] Counterarguments addressed
 - [x] Edge cases documented
+- [x] Dual-mode pattern documented
+- [x] PoC implementation (fetch/XHR wrappers in `src/http-adapter/`)
+- [x] Example: `basic-server-vanillajs` with http-adapter
+- [x] Example: `hono-react-server` with dual-mode pattern
 - [ ] PR comment drafted
-- [ ] PoC implementation
 - [ ] PR submitted

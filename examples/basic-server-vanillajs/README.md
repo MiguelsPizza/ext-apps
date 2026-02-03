@@ -49,6 +49,7 @@ To test local modifications, use this configuration (replace `~/code/ext-apps` w
 - Tool registration with a linked UI resource
 - Vanilla JS UI using the [`App`](https://modelcontextprotocol.github.io/ext-apps/api/classes/app.App.html) class directly
 - HTTP adapter demo using `initMcpHttp` to proxy `fetch()` and `XMLHttpRequest`
+- In-process routing (no upstream HTTP server required)
 - Demo endpoints: `/api/time`, `/api/items`, `/api/items/xhr`
 - App communication APIs: [`sendMessage`](https://modelcontextprotocol.github.io/ext-apps/api/classes/app.App.html#sendmessage), [`sendLog`](https://modelcontextprotocol.github.io/ext-apps/api/classes/app.App.html#sendlog), [`openLink`](https://modelcontextprotocol.github.io/ext-apps/api/classes/app.App.html#openlink)
 - Theme integration via [`applyDocumentTheme()`](https://modelcontextprotocol.github.io/ext-apps/api/functions/app.applyDocumentTheme.html), [`applyHostStyleVariables()`](https://modelcontextprotocol.github.io/ext-apps/api/functions/app.applyHostStyleVariables.html), and [`applyHostFonts()`](https://modelcontextprotocol.github.io/ext-apps/api/functions/app.applyHostFonts.html)
@@ -70,7 +71,7 @@ npm run dev
 1. The server registers a `get-time` tool with metadata linking it to a UI HTML resource (`ui://get-time/mcp-app.html`).
 2. When the tool is invoked, the Host renders the UI from the resource.
 3. The UI initializes the MCP HTTP adapter so `fetch()` and XHR calls to `/api/*` are routed through the `http_request` tool.
-4. The `http_request` handler serves `/api/time` and `/api/items` responses for the demo UI.
+4. The `http_request` handler serves `/api/time` and `/api/items` responses **in-process** (a simple switch statement), so there is **no upstream HTTP server** required for this example.
 
 ## Build System
 

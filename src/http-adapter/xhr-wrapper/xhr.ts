@@ -6,17 +6,17 @@
  */
 import type { App } from "../../app.js";
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
-import type {
-  McpBodyType,
-  McpHttpRequest,
-  McpHttpResponse,
-} from "../shared/http-types.js";
+import {
+  HTTP_REQUEST_TOOL_NAME,
+  type McpHttpBodyType,
+  type McpHttpRequest,
+  type McpHttpResponse,
+} from "../../types.js";
 import type { McpXhrHandle, McpXhrOptions } from "./xhr-options.js";
 import {
-  DEFAULT_TOOL_NAME,
   DEFAULT_INTERCEPT_PATHS,
   FORBIDDEN_REQUEST_HEADERS,
-} from "../shared/constants.js";
+} from "../http-options.js";
 import {
   buildMcpHttpRequestPayload,
   defaultShouldIntercept,
@@ -24,10 +24,11 @@ import {
   warnNativeFallback,
 } from "../shared/request.js";
 import {
-  extractResponsePayload,
+  extractHttpResponse,
   extractToolError,
-} from "../shared/response.js";
-import { fromBase64, serializeBodyInit } from "../shared/body.js";
+  fromBase64,
+  serializeBodyInit,
+} from "../shared/body.js";
 
 /**
  * Initialize the MCP XHR wrapper.
@@ -59,7 +60,14 @@ export function initMcpXhr(
     throw new Error("XMLHttpRequest is not available in this environment");
   }
 
-  const McpXhr = createMcpXhrClass(app, NativeXMLHttpRequest, options);
+  let active = true;
+
+  const McpXhr = createMcpXhrClass(
+    app,
+    NativeXMLHttpRequest,
+    options,
+    () => active,
+  );
 
   if (options.installGlobal ?? true) {
     (globalThis as { XMLHttpRequest: typeof XMLHttpRequest }).XMLHttpRequest =
@@ -68,6 +76,13 @@ export function initMcpXhr(
 
   return {
     XMLHttpRequest: McpXhr,
+    stop: () => {
+      active = false;
+    },
+    start: () => {
+      active = true;
+    },
+    isActive: () => active,
     restore: () => {
       if (globalThis.XMLHttpRequest === McpXhr) {
         (
@@ -85,8 +100,9 @@ function createMcpXhrClass(
   app: App,
   NativeXMLHttpRequest: typeof XMLHttpRequest,
   options: McpXhrOptions,
+  isActive: () => boolean,
 ): typeof XMLHttpRequest {
-  const toolName = options.toolName ?? DEFAULT_TOOL_NAME;
+  const toolName = options.toolName ?? HTTP_REQUEST_TOOL_NAME;
   const interceptPaths = options.interceptPaths ?? DEFAULT_INTERCEPT_PATHS;
   const allowAbsoluteUrls = options.allowAbsoluteUrls ?? false;
   const fallbackToNative = options.fallbackToNative ?? true;
@@ -112,6 +128,9 @@ function createMcpXhrClass(
   }
 
   function shouldUseNativeTransport(willIntercept: boolean): boolean {
+    if (!isActive()) {
+      return true;
+    }
     return !willIntercept || (!isMcpApp() && fallbackToNative);
   }
 
@@ -119,21 +138,18 @@ function createMcpXhrClass(
    * The proxy XMLHttpRequest class.
    */
   class McpXMLHttpRequest extends EventTarget implements XMLHttpRequest {
-    // Static constants
     static readonly UNSENT = 0;
     static readonly OPENED = 1;
     static readonly HEADERS_RECEIVED = 2;
     static readonly LOADING = 3;
     static readonly DONE = 4;
 
-    // Instance constants (required by interface)
     readonly UNSENT = 0;
     readonly OPENED = 1;
     readonly HEADERS_RECEIVED = 2;
     readonly LOADING = 3;
     readonly DONE = 4;
 
-    // Internal state
     private _method = "GET";
     private _url = "";
     private _async = true;
@@ -150,16 +166,17 @@ function createMcpXhrClass(
     private _aborted = false;
     private _sent = false;
     private _abortController: AbortController | null = null;
+    private _lastError: unknown = null;
+    private _timeoutId: ReturnType<typeof setTimeout> | null = null;
+    private _timedOut = false;
     private _nativeXhr: XMLHttpRequest | null = null;
     private _useNative = false;
 
-    // Public properties
     responseType: XMLHttpRequestResponseType = "";
     timeout = 0;
     withCredentials = false;
     upload: XMLHttpRequestUpload = new McpXMLHttpRequestUpload();
 
-    // Event handlers (on* properties)
     onreadystatechange: ((this: XMLHttpRequest, ev: Event) => unknown) | null =
       null;
     onload: ((this: XMLHttpRequest, ev: ProgressEvent) => unknown) | null =
@@ -177,7 +194,6 @@ function createMcpXhrClass(
     onprogress: ((this: XMLHttpRequest, ev: ProgressEvent) => unknown) | null =
       null;
 
-    // Getters
     get readyState(): number {
       return this._useNative && this._nativeXhr
         ? this._nativeXhr.readyState
@@ -216,7 +232,6 @@ function createMcpXhrClass(
     }
 
     get responseXML(): Document | null {
-      // Not supported in MCP proxy mode
       if (this._useNative && this._nativeXhr) {
         return this._nativeXhr.responseXML;
       }
@@ -241,10 +256,8 @@ function createMcpXhrClass(
     ): void {
       const urlString = url instanceof URL ? url.toString() : url;
 
-      // Check if we should intercept this request
       const willIntercept = shouldIntercept(method, urlString);
 
-      // Synchronous XHR is not supported for intercepted requests
       if (!async && willIntercept) {
         throw new DOMException(
           "Synchronous XMLHttpRequest is not supported in MCP Apps. Use async: true.",
@@ -252,11 +265,9 @@ function createMcpXhrClass(
         );
       }
 
-      // Determine if we should use native XHR
       this._useNative = shouldUseNativeTransport(willIntercept);
 
       if (this._useNative) {
-        // Log warning if we're falling back due to MCP unavailability
         if (willIntercept && !isMcpApp() && fallbackToNative) {
           warnNativeFallback("XHR", urlString);
         }
@@ -305,6 +316,11 @@ function createMcpXhrClass(
       this._aborted = false;
       this._sent = false;
       this._abortController = new AbortController();
+      this._timedOut = false;
+      if (this._timeoutId) {
+        clearTimeout(this._timeoutId);
+        this._timeoutId = null;
+      }
     }
 
     /**
@@ -330,16 +346,13 @@ function createMcpXhrClass(
         );
       }
 
-      // Normalize header name to lowercase for storage
       const normalizedName = name.toLowerCase();
 
-      // Skip forbidden headers
       if (FORBIDDEN_REQUEST_HEADERS.has(normalizedName)) {
         console.warn(`Refused to set unsafe header "${name}"`);
         return;
       }
 
-      // Append or set header value
       if (this._requestHeaders[normalizedName]) {
         this._requestHeaders[normalizedName] += ", " + value;
       } else {
@@ -393,7 +406,6 @@ function createMcpXhrClass(
         this._nativeXhr.overrideMimeType(_mime);
         return;
       }
-      // No-op in MCP mode - server controls content-type
     }
 
     /**
@@ -422,7 +434,6 @@ function createMcpXhrClass(
       this._sent = true;
       this._dispatchProgressEvent("loadstart", 0, 0, false);
 
-      // Execute async
       this._executeRequest(body).catch((error) => {
         if (!this._aborted) {
           this._handleError(error);
@@ -445,6 +456,10 @@ function createMcpXhrClass(
 
       this._aborted = true;
       this._abortController?.abort();
+      if (this._timeoutId) {
+        clearTimeout(this._timeoutId);
+        this._timeoutId = null;
+      }
 
       if (this._sent && this._readyState !== McpXMLHttpRequest.DONE) {
         this._sent = false;
@@ -453,7 +468,6 @@ function createMcpXhrClass(
         this._dispatchProgressEvent("loadend", 0, 0, false);
       }
 
-      // Reset state
       this._readyState = McpXMLHttpRequest.UNSENT;
     }
 
@@ -463,6 +477,7 @@ function createMcpXhrClass(
     private async _executeRequest(
       body: Document | XMLHttpRequestBodyInit | null | undefined,
     ): Promise<void> {
+      let timeoutId: ReturnType<typeof setTimeout> | null = null;
       try {
         const { serializedBody, bodyType } = await this._serializeBody(body);
         const request = this._buildMcpRequest(serializedBody, bodyType);
@@ -470,6 +485,20 @@ function createMcpXhrClass(
         const callOptions = this._abortController
           ? { signal: this._abortController.signal }
           : undefined;
+
+        const timeoutMs =
+          this.timeout > 0 ? this.timeout : options.timeoutMs;
+        if (timeoutMs && timeoutMs > 0) {
+          this._timedOut = false;
+          timeoutId = setTimeout(() => {
+            if (this._aborted) {
+              return;
+            }
+            this._timedOut = true;
+            this._abortController?.abort();
+          }, timeoutMs);
+          this._timeoutId = timeoutId;
+        }
 
         const result = await app.callServerTool(
           { name: toolName, arguments: request },
@@ -486,12 +515,19 @@ function createMcpXhrClass(
           return;
         }
         this._handleError(error);
+      } finally {
+        if (timeoutId) {
+          clearTimeout(timeoutId);
+        }
+        if (this._timeoutId === timeoutId) {
+          this._timeoutId = null;
+        }
       }
     }
 
     private _buildMcpRequest(
       serializedBody: unknown,
-      bodyType?: McpBodyType,
+      bodyType?: McpHttpBodyType,
     ): McpHttpRequest {
       const { toolUrl } = getRequestUrlInfo(this._url, allowAbsoluteUrls);
       return buildMcpHttpRequestPayload({
@@ -504,7 +540,7 @@ function createMcpXhrClass(
         body: serializedBody,
         bodyType,
         credentials: this.withCredentials ? "include" : "same-origin",
-        timeoutMs: this.timeout || options.timeoutMs,
+        timeoutMs: this.timeout > 0 ? this.timeout : options.timeoutMs,
       });
     }
 
@@ -517,13 +553,14 @@ function createMcpXhrClass(
         return;
       }
 
-      const response = extractResponsePayload(result);
+      const response = extractHttpResponse(result, {
+        debug: options.debug,
+      });
 
       this._status = response.status;
       this._statusText = response.statusText ?? "";
       this._responseHeaders = {};
 
-      // Normalize response headers to lowercase
       if (response.headers) {
         for (const [name, value] of Object.entries(response.headers)) {
           this._responseHeaders[name.toLowerCase()] = value;
@@ -532,10 +569,8 @@ function createMcpXhrClass(
 
       this._responseURL = response.url ?? this._url;
 
-      // Decode response based on responseType
       this._decodeResponse(response);
 
-      // Transition through states
       this._setReadyState(McpXMLHttpRequest.HEADERS_RECEIVED);
       this._setReadyState(McpXMLHttpRequest.LOADING);
 
@@ -551,7 +586,16 @@ function createMcpXhrClass(
      * Handles an error.
      */
     private _handleError(error: unknown): void {
-      console.error("XHR error:", error);
+      this._lastError = error;
+
+      if (options.debug) {
+        console.error("[MCP XHR] Request failed:", {
+          url: this._url,
+          method: this._method,
+          errorName: error instanceof Error ? error.name : "UnknownError",
+          errorMessage: error instanceof Error ? error.message : String(error),
+        });
+      }
 
       this._status = 0;
       this._statusText = "";
@@ -560,11 +604,10 @@ function createMcpXhrClass(
 
       this._setReadyState(McpXMLHttpRequest.DONE);
 
-      // Check if it's a timeout
       if (
         error instanceof Error &&
         error.name === "AbortError" &&
-        this.timeout > 0
+        this._timedOut
       ) {
         this._dispatchProgressEvent("timeout", 0, 0, false);
       } else {
@@ -579,7 +622,7 @@ function createMcpXhrClass(
      */
     private async _serializeBody(
       body: Document | XMLHttpRequestBodyInit | null | undefined,
-    ): Promise<{ serializedBody?: unknown; bodyType?: McpBodyType }> {
+    ): Promise<{ serializedBody?: unknown; bodyType?: McpHttpBodyType }> {
       if (body == null) {
         return { bodyType: "none" };
       }
@@ -592,7 +635,7 @@ function createMcpXhrClass(
       const { body: serializedBody, bodyType } = await serializeBodyInit(
         body,
         contentType,
-        { allowDocument: true },
+        { allowDocument: true, debug: options.debug },
       );
       return { serializedBody, bodyType };
     }
@@ -603,7 +646,6 @@ function createMcpXhrClass(
     private _decodeResponse(response: McpHttpResponse): void {
       const { body, bodyType } = response;
 
-      // Get raw text first
       let text = "";
       if (bodyType === "json") {
         text = typeof body === "string" ? body : JSON.stringify(body);
@@ -617,7 +659,6 @@ function createMcpXhrClass(
 
       this._responseText = text;
 
-      // Set response based on responseType
       switch (this.responseType) {
         case "":
         case "text":
@@ -650,7 +691,6 @@ function createMcpXhrClass(
           }
           break;
         case "document":
-          // Not supported - return null
           this._response = null;
           break;
         default:
@@ -683,7 +723,6 @@ function createMcpXhrClass(
         total,
       });
 
-      // Call on* handler
       const handler = this[`on${type}` as keyof this];
       if (typeof handler === "function") {
         (handler as (ev: ProgressEvent) => void).call(
@@ -703,7 +742,6 @@ function createMcpXhrClass(
 
       const xhr = this._nativeXhr;
 
-      // Proxy all events
       const events = [
         "readystatechange",
         "load",
@@ -717,7 +755,6 @@ function createMcpXhrClass(
 
       for (const eventType of events) {
         xhr.addEventListener(eventType, (event) => {
-          // Call on* handler
           const handler = this[`on${eventType}` as keyof this];
           if (typeof handler === "function") {
             (handler as (ev: Event) => void).call(
@@ -725,14 +762,12 @@ function createMcpXhrClass(
               event,
             );
           }
-          // Re-dispatch to our listeners
           this.dispatchEvent(
             new (event.constructor as typeof Event)(event.type, event),
           );
         });
       }
 
-      // Proxy upload events
       const uploadEvents = [
         "loadstart",
         "progress",

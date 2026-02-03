@@ -701,6 +701,187 @@ export const McpUiClientCapabilitiesSchema = z.object({
 });
 
 /**
+ * @description Body encoding type for http_request tool.
+ *
+ * - `"none"` - No body (explicit empty body)
+ * - `"json"` - JSON-serializable value, sent as `application/json`
+ * - `"text"` - Plain text string
+ * - `"formData"` - Array of {@link McpHttpFormField} entries
+ * - `"urlEncoded"` - URL-encoded string (key=value&key2=value2)
+ * - `"base64"` - Binary data as base64-encoded string
+ */
+export const McpHttpBodyTypeSchema = z.union([
+  z.literal("none"),
+  z.literal("json"),
+  z.literal("text"),
+  z.literal("formData"),
+  z.literal("urlEncoded"),
+  z.literal("base64"),
+]);
+
+/**
+ * @description Standard HTTP methods.
+ */
+export const McpHttpMethodSchema = z
+  .union([
+    z.literal("GET"),
+    z.literal("POST"),
+    z.literal("PUT"),
+    z.literal("DELETE"),
+    z.literal("PATCH"),
+    z.literal("HEAD"),
+    z.literal("OPTIONS"),
+  ])
+  .describe("Standard HTTP methods.");
+
+/**
+ * @description Text form field for multipart/form-data requests.
+ */
+export const McpHttpFormFieldTextSchema = z.object({
+  /** @description Field name. */
+  name: z.string().describe("Field name."),
+  /** @description Text value for this field. */
+  value: z.string().describe("Text value for this field."),
+});
+
+/**
+ * @description Binary/file form field for multipart/form-data requests.
+ */
+export const McpHttpFormFieldBinarySchema = z.object({
+  /** @description Field name. */
+  name: z.string().describe("Field name."),
+  /** @description Base64-encoded binary data. */
+  data: z.string().describe("Base64-encoded binary data."),
+  /** @description Original filename (for file uploads). */
+  filename: z
+    .string()
+    .optional()
+    .describe("Original filename (for file uploads)."),
+  /** @description MIME type of the file. */
+  contentType: z.string().optional().describe("MIME type of the file."),
+});
+
+/**
+ * @description Form field for formData body type.
+ * Either a text field with `value`, or a binary/file field with `data`.
+ */
+export const McpHttpFormFieldSchema = z
+  .union([McpHttpFormFieldTextSchema, McpHttpFormFieldBinarySchema])
+  .describe(
+    "Form field for formData body type.\nEither a text field with `value`, or a binary/file field with `data`.",
+  );
+
+/**
+ * @description HTTP request payload for http_request tool.
+ * Uses browser-compatible types where possible.
+ */
+export const McpHttpRequestSchema = z
+  .object({
+    /**
+     * @description HTTP method. Defaults to "GET".
+     * Standard HTTP methods or custom strings.
+     */
+    method: z
+      .string()
+      .optional()
+      .describe(
+        'HTTP method. Defaults to "GET".\nStandard HTTP methods or custom strings.',
+      ),
+    /** @description Request URL. */
+    url: z.string().describe("Request URL."),
+    /** @description Request headers as key-value pairs. */
+    headers: z
+      .record(
+        z.string(),
+        z.string().describe("Request headers as key-value pairs."),
+      )
+      .optional()
+      .describe("Request headers as key-value pairs."),
+    /** @description Request body. Type depends on bodyType. */
+    body: z
+      .unknown()
+      .optional()
+      .describe("Request body. Type depends on bodyType."),
+    /** @description Body encoding type. */
+    bodyType: McpHttpBodyTypeSchema.optional().describe("Body encoding type."),
+    /** @description Redirect handling. Matches browser RequestInit.redirect semantics. */
+    redirect: z
+      .union([z.literal("follow"), z.literal("error"), z.literal("manual")])
+      .optional()
+      .describe(
+        "Redirect handling. Matches browser RequestInit.redirect semantics.",
+      ),
+    /** @description Cache mode. Matches browser RequestInit.cache semantics. */
+    cache: z
+      .union([
+        z.literal("default"),
+        z.literal("no-store"),
+        z.literal("reload"),
+        z.literal("no-cache"),
+        z.literal("force-cache"),
+        z.literal("only-if-cached"),
+      ])
+      .optional()
+      .describe("Cache mode. Matches browser RequestInit.cache semantics."),
+    /** @description Credentials mode. Matches browser RequestInit.credentials semantics. */
+    credentials: z
+      .union([
+        z.literal("omit"),
+        z.literal("same-origin"),
+        z.literal("include"),
+      ])
+      .optional()
+      .describe(
+        "Credentials mode. Matches browser RequestInit.credentials semantics.",
+      ),
+    /** @description Request timeout in milliseconds. */
+    timeoutMs: z
+      .number()
+      .optional()
+      .describe("Request timeout in milliseconds."),
+  })
+  .passthrough();
+
+/**
+ * @description HTTP response payload from http_request tool.
+ */
+export const McpHttpResponseSchema = z
+  .object({
+    /** @description HTTP status code. */
+    status: z.number().describe("HTTP status code."),
+    /** @description HTTP status text (e.g., "OK", "Not Found"). */
+    statusText: z
+      .string()
+      .optional()
+      .describe('HTTP status text (e.g., "OK", "Not Found").'),
+    /** @description Response headers as key-value pairs. */
+    headers: z
+      .record(
+        z.string(),
+        z.string().describe("Response headers as key-value pairs."),
+      )
+      .optional()
+      .describe("Response headers as key-value pairs."),
+    /** @description Response body. Type depends on bodyType. */
+    body: z
+      .unknown()
+      .optional()
+      .describe("Response body. Type depends on bodyType."),
+    /** @description Body encoding type. */
+    bodyType: McpHttpBodyTypeSchema.optional().describe("Body encoding type."),
+    /** @description Final URL after redirects. */
+    url: z.string().optional().describe("Final URL after redirects."),
+    /** @description True if the request was redirected. */
+    redirected: z
+      .boolean()
+      .optional()
+      .describe("True if the request was redirected."),
+    /** @description True if status is 200-299. */
+    ok: z.boolean().optional().describe("True if status is 200-299."),
+  })
+  .passthrough();
+
+/**
  * @description Request to send a message to the host's chat interface.
  * @see {@link app!App.sendMessage `App.sendMessage`} for the method that sends this request
  */

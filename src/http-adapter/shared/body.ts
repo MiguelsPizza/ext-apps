@@ -1,8 +1,19 @@
 /**
- * Body serialization helpers shared across HTTP adapters.
+ * Body serialization and response extraction helpers shared across HTTP adapters.
  */
-import type { McpBodyType, McpFormField } from "./http-types.js";
+import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
+import {
+  McpHttpResponseSchema,
+  type McpHttpBodyType,
+  type McpHttpFormField,
+  type McpHttpResponse,
+} from "../../types.js";
 import { safeJsonParse } from "./json.js";
+
+export interface SerializeBodyOptions {
+  allowDocument?: boolean;
+  debug?: boolean;
+}
 
 /**
  * Encodes a Uint8Array to a base64 string.
@@ -51,14 +62,13 @@ export function fromBase64(base64: string): Uint8Array {
  */
 export async function formDataToFields(
   formData: FormData,
-): Promise<McpFormField[]> {
-  const fields: McpFormField[] = [];
+): Promise<McpHttpFormField[]> {
+  const fields: McpHttpFormField[] = [];
   for (const [name, value] of formData.entries()) {
     if (typeof value === "string") {
       fields.push({ name, value });
       continue;
     }
-    // value is a File (which extends Blob)
     const file = value as File;
     const buffer = await file.arrayBuffer();
     fields.push({
@@ -77,10 +87,14 @@ export async function formDataToFields(
 export function serializeStringBody(
   body: string,
   contentType: string | null,
-): { body?: unknown; bodyType?: McpBodyType } {
+  options: SerializeBodyOptions = {},
+): { body?: unknown; bodyType?: McpHttpBodyType } {
   const normalizedType = (contentType ?? "").toLowerCase();
   if (normalizedType.includes("application/json")) {
-    const parsed = safeJsonParse(body);
+    const parsed = safeJsonParse(body, {
+      context: "request body",
+      debug: options.debug,
+    });
     if (parsed !== undefined) {
       return { bodyType: "json", body: parsed };
     }
@@ -97,14 +111,14 @@ export function serializeStringBody(
 export async function serializeBodyInit(
   body: BodyInit | XMLHttpRequestBodyInit | Document | null,
   contentType: string | null,
-  options: { allowDocument?: boolean } = {},
-): Promise<{ body?: unknown; bodyType?: McpBodyType }> {
+  options: SerializeBodyOptions = {},
+): Promise<{ body?: unknown; bodyType?: McpHttpBodyType }> {
   if (body == null) {
     return { bodyType: "none", body: undefined };
   }
 
   if (typeof body === "string") {
-    return serializeStringBody(body, contentType);
+    return serializeStringBody(body, contentType, options);
   }
 
   if (
@@ -172,12 +186,16 @@ export async function serializeBodyInit(
 export async function serializeBodyFromRequest(
   request: Request,
   contentType: string | null,
-): Promise<{ body?: unknown; bodyType?: McpBodyType }> {
+  options: SerializeBodyOptions = {},
+): Promise<{ body?: unknown; bodyType?: McpHttpBodyType }> {
   const normalizedType = (contentType ?? "").toLowerCase();
 
   if (normalizedType.includes("application/json")) {
     const text = await request.text();
-    const parsed = safeJsonParse(text);
+    const parsed = safeJsonParse(text, {
+      context: "request body",
+      debug: options.debug,
+    });
     if (parsed !== undefined) {
       return { bodyType: "json", body: parsed };
     }
@@ -197,10 +215,11 @@ export async function serializeBodyFromRequest(
       return { bodyType: "formData", body: await formDataToFields(formData) };
     } catch (error) {
       console.warn(
-        "Failed to parse multipart/form-data, falling back to binary encoding:",
+        "[MCP HTTP] Failed to parse multipart/form-data. " +
+          "The request body will be sent as binary, which may cause server-side parsing failures. " +
+          "If this is unexpected, verify the multipart boundary is valid.",
         error instanceof Error ? error.message : String(error),
       );
-      // Fall through to text/binary handling.
     }
   }
 
@@ -214,4 +233,102 @@ export async function serializeBodyFromRequest(
 
   const buffer = await request.arrayBuffer();
   return { bodyType: "base64", body: toBase64(new Uint8Array(buffer)) };
+}
+
+export interface ExtractHttpResponseOptions {
+  debug?: boolean;
+}
+
+/**
+ * Extracts text content from a CallToolResult.
+ */
+export function extractTextContent(result: CallToolResult): string | undefined {
+  const blocks = (
+    result as { content?: Array<{ type: string; text?: string }> }
+  ).content;
+  if (!blocks) {
+    return undefined;
+  }
+  for (const block of blocks) {
+    if (block.type === "text" && typeof block.text === "string") {
+      return block.text;
+    }
+  }
+  return undefined;
+}
+
+/**
+ * Extracts error message from a CallToolResult.
+ */
+export function extractToolError(result: CallToolResult): string {
+  return extractTextContent(result) ?? "MCP tool returned an error";
+}
+
+/**
+ * Extracts McpHttpResponse from a CallToolResult.
+ * Uses Zod schema for validation.
+ */
+export function extractHttpResponse(
+  result: CallToolResult,
+  options: ExtractHttpResponseOptions = {},
+): McpHttpResponse {
+  const structured = (result as { structuredContent?: unknown })
+    .structuredContent;
+  if (structured && typeof structured === "object") {
+    const parseResult = McpHttpResponseSchema.safeParse(structured);
+    if (parseResult.success) {
+      return parseResult.data;
+    }
+    if (options.debug) {
+      console.debug(
+        "[MCP HTTP] Schema validation failed for structuredContent:",
+        parseResult.error.message,
+      );
+    }
+    throw new Error(
+      "http_request returned invalid response: " +
+        parseResult.error.issues.map((i) => i.message).join(", "),
+    );
+  }
+
+  const text = extractTextContent(result);
+  if (text) {
+    const parsed = safeJsonParse(text, {
+      context: "http_request response",
+      debug: options.debug,
+    });
+    if (parsed && typeof parsed === "object") {
+      const parseResult = McpHttpResponseSchema.safeParse(parsed);
+      if (parseResult.success) {
+        return parseResult.data;
+      }
+      if (options.debug) {
+        console.debug(
+          "[MCP HTTP] Schema validation failed for parsed JSON:",
+          parseResult.error.message,
+        );
+      }
+      throw new Error(
+        "http_request returned invalid response: " +
+          parseResult.error.issues.map((i) => i.message).join(", "),
+      );
+    }
+    throw new Error(
+      `http_request returned invalid response: expected object, got ${typeof parsed}. ` +
+        `Raw text (truncated): ${truncateText(text)}`,
+    );
+  }
+
+  throw new Error(
+    "http_request did not return structured content. " +
+      `structuredContent type: ${typeof structured}, ` +
+      `content blocks: ${result.content?.length ?? 0}`,
+  );
+}
+
+function truncateText(text: string, maxLength = 200): string {
+  if (text.length <= maxLength) {
+    return text;
+  }
+  return `${text.slice(0, maxLength)}...`;
 }
