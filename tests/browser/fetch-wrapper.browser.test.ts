@@ -754,7 +754,7 @@ describe("fetch proxy handler (browser)", () => {
     const calls: Array<{ name: string }> = [];
     const baseHandler = async () => {
       calls.push({ name: "other_tool" });
-      return { content: [{ type: "text", text: "ok" }] };
+      return { content: [{ type: "text" as const, text: "ok" }] };
     };
 
     const wrapped = wrapCallToolHandlerWithFetchProxy(baseHandler, {
@@ -947,11 +947,13 @@ describe("fetch proxy handler (browser)", () => {
   });
 
   test("passes credentials and cache options to fetch", async ({ worker }) => {
-    let captured: Request | null = null;
+    let capturedCredentials: RequestCredentials | undefined;
+    let capturedCache: RequestCache | undefined;
 
     worker.use(
       http.get("https://example.com/api/cache", ({ request }) => {
-        captured = request;
+        capturedCredentials = request.credentials;
+        capturedCache = request.cache;
         return HttpResponse.text("ok", { status: 200 });
       }),
     );
@@ -971,8 +973,8 @@ describe("fetch proxy handler (browser)", () => {
       },
     });
 
-    expect(captured?.credentials).toBe("include");
-    expect(captured?.cache).toBe("no-store");
+    expect(capturedCredentials).toBe("include");
+    expect(capturedCache).toBe("no-store");
   });
 
   test("throws when tool returns isError", async () => {
