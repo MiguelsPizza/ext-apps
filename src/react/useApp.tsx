@@ -1,6 +1,5 @@
 import { useEffect, useState } from "react";
 import { Implementation } from "@modelcontextprotocol/sdk/types.js";
-import { Client } from "@modelcontextprotocol/sdk/client";
 import { App, McpUiAppCapabilities, PostMessageTransport } from "../app";
 export * from "../app";
 
@@ -51,8 +50,6 @@ export interface UseAppOptions {
 export interface AppState {
   /**
    * The {@link App `App`} instance, null during initialization.
-   * When running standalone (not in an iframe), the app may be non-null even
-   * if `isConnected` is false.
    */
   app: App | null;
   /** Whether initialization completed successfully */
@@ -140,6 +137,9 @@ export function useApp({
         // Register handlers BEFORE connecting
         onAppCreated?.(app);
 
+        // Standalone mode: when not in an iframe, provide the app without
+        // attempting connection. This enables testing/development outside
+        // an MCP host context - the app will have isConnected: false.
         if (!isInIframe()) {
           if (mounted) {
             setApp(app);
@@ -181,10 +181,22 @@ export function useApp({
   return { app, isConnected, error };
 }
 
+/**
+ * Checks if the current window is running inside an iframe.
+ *
+ * Uses a try-catch to handle cross-origin scenarios where accessing
+ * `window.top` throws a security exception.
+ *
+ * @returns `true` if in an iframe, `false` if top-level window
+ */
 function isInIframe(): boolean {
+  if (typeof window === "undefined") {
+    return false;
+  }
   try {
     return window.self !== window.top;
-  } catch (error) {
+  } catch {
+    // If we can't access window.top, we're in a cross-origin iframe
     return true;
   }
 }

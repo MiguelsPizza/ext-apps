@@ -626,6 +626,7 @@ function createMcpXhrClass(
           method: this._method,
           errorName: error instanceof Error ? error.name : "UnknownError",
           errorMessage: error instanceof Error ? error.message : String(error),
+          stack: error instanceof Error ? error.stack : undefined,
         });
       }
 

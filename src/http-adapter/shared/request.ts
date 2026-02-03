@@ -15,8 +15,8 @@ export function getBaseUrl(): string {
 
 /**
  * Resolves a URL against the current base URL.
+ * @internal
  */
-/** @internal */
 export function resolveUrl(url: string | URL): URL {
   if (url instanceof URL) {
     return url;
@@ -46,8 +46,8 @@ export function normalizePath(path: string): string {
 
 /**
  * Removes undefined values from an object.
+ * @internal
  */
-/** @internal */
 export function stripUndefined<T extends Record<string, unknown>>(value: T): T {
   return Object.fromEntries(
     Object.entries(value).filter(([, entry]) => entry !== undefined),
@@ -187,6 +187,7 @@ export function buildMcpHttpRequestPayloadFromRequest({
 
 /**
  * Logs a warning when falling back to native HTTP due to MCP host unavailability.
+ * @internal
  */
 export function warnNativeFallback(
   adapter: "fetch" | "XHR",
@@ -194,6 +195,8 @@ export function warnNativeFallback(
 ): void {
   console.warn(
     `[MCP ${adapter}] Falling back to native ${adapter.toLowerCase()} for ${url}: ` +
-      `MCP host connection not available. Set fallbackToNative: false to throw instead.`,
+      `MCP host connection not available. ` +
+      `Ensure app.connect() completed and the host supports serverTools capability. ` +
+      `Set fallbackToNative: false to throw instead.`,
   );
 }

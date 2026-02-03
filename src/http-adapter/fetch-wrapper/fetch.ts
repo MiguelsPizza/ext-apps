@@ -58,7 +58,7 @@ import { safeJsonParse } from "../shared/json.js";
  * @param options - Configuration options for the fetch wrapper
  * @returns A handle containing the wrapped fetch function and restore method
  *
- * @throws {Error} If global fetch is not available and no custom fetch is provided
+ * @throws {Error} If fetch is not available (neither global fetch nor `options.fetch` provided)
  *
  * @example
  * ```ts source="./fetch.examples.ts#initMcpFetch_basicUsage"
@@ -478,8 +478,15 @@ async function handleProxyRequest(
   const body = buildProxyBody(args, headers, options.debug);
 
   const timeoutMs = args.timeoutMs ?? options.timeoutMs;
-  const timeoutSignal = timeoutMs ? createTimeoutSignal(timeoutMs) : undefined;
-  const { signal: mergedSignal, cleanup } = mergeSignals(signal, timeoutSignal);
+  const timeout = timeoutMs ? createTimeoutSignal(timeoutMs) : undefined;
+  const { signal: mergedSignal, cleanup: signalCleanup } = mergeSignals(
+    signal,
+    timeout?.signal,
+  );
+  const cleanup = () => {
+    signalCleanup();
+    timeout?.cleanup();
+  };
 
   try {
     const response = await fetchImpl(fetchUrl, {
@@ -851,11 +858,17 @@ function mergeSignals(
   return { signal: controller.signal, cleanup };
 }
 
-function createTimeoutSignal(timeoutMs: number): AbortSignal {
+function createTimeoutSignal(timeoutMs: number): {
+  signal: AbortSignal;
+  cleanup: () => void;
+} {
   if (typeof AbortSignal !== "undefined" && "timeout" in AbortSignal) {
-    return AbortSignal.timeout(timeoutMs);
+    return { signal: AbortSignal.timeout(timeoutMs), cleanup: () => {} };
   }
   const controller = new AbortController();
-  setTimeout(() => controller.abort(), timeoutMs);
-  return controller.signal;
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+  return {
+    signal: controller.signal,
+    cleanup: () => clearTimeout(timeoutId),
+  };
 }

@@ -83,8 +83,8 @@ export async function formDataToFields(
 
 /**
  * Serializes a string body based on content-type.
+ * @internal
  */
-/** @internal */
 export function serializeStringBody(
   body: string,
   contentType: string | null,
@@ -243,8 +243,8 @@ export interface ExtractHttpResponseOptions {
 
 /**
  * Extracts text content from a CallToolResult.
+ * @internal
  */
-/** @internal */
 export function extractTextContent(result: CallToolResult): string | undefined {
   const blocks = (
     result as { content?: Array<{ type: string; text?: string }> }

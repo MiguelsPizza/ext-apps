@@ -4,6 +4,7 @@
 import type {
   FetchFunction,
   McpHttpBaseOptions,
+  McpHttpHandleBase,
   McpHttpProxyOptions,
 } from "../http-options.js";
 
@@ -37,17 +38,7 @@ export interface McpFetchOptions extends McpHttpBaseOptions {
 /**
  * Handle returned from initMcpFetch for controlling the fetch wrapper lifecycle.
  *
- * ## State Machine
- *
- * ```
- * [active] --stop()--> [inactive] --start()--> [active]
- *    |                     |
- *    +-----restore()-------+-----> [terminated]
- * ```
- *
- * - **active** (initial): Requests matching `interceptPaths` are proxied through MCP
- * - **inactive**: All requests use native fetch (reversible with `start()`)
- * - **terminated**: Wrapper is permanently uninstalled (irreversible)
+ * Extends {@link McpHttpHandleBase} with the wrapped fetch function.
  *
  * @example
  * ```ts source="./fetch.examples.ts#McpFetchHandle_lifecycle_basic"
@@ -62,30 +53,13 @@ export interface McpFetchOptions extends McpHttpBaseOptions {
  * handle.restore(); // Cannot restart after this
  * ```
  */
-export interface McpFetchHandle {
-  /** The wrapped fetch function (can be used directly instead of global) */
+export interface McpFetchHandle extends McpHttpHandleBase {
+  /**
+   * The wrapped fetch function.
+   * Use this directly instead of global when `installGlobal: false` is set,
+   * or for explicit control in testing scenarios.
+   */
   fetch: FetchFunction;
-  /**
-   * Pause interception. Requests will use native fetch until `start()` is called.
-   * This is reversible, unlike `restore()`.
-   */
-  stop: () => void;
-  /**
-   * Resume interception after `stop()` was called.
-   * Has no effect if already active or after `restore()`.
-   */
-  start: () => void;
-  /**
-   * Check if currently intercepting requests.
-   * Returns `false` after `stop()` or `restore()`.
-   */
-  isActive: () => boolean;
-  /**
-   * Permanently uninstall the wrapper and restore native fetch.
-   * **This is irreversible** - calling `start()` after `restore()` has no effect.
-   * Use for cleanup when the MCP app is being unmounted.
-   */
-  restore: () => void;
 }
 
 /**

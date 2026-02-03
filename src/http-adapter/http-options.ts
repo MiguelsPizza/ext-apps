@@ -156,6 +156,7 @@ export interface McpHttpProxyOptions {
 
   /**
    * Maximum body size in bytes.
+   * Set to `0` or a negative value to disable size enforcement.
    * @default 10485760 (10MB)
    */
   maxBodySize?: number;
@@ -165,6 +166,48 @@ export interface McpHttpProxyOptions {
    * @default false
    */
   debug?: boolean;
+}
+
+/**
+ * Base interface for HTTP wrapper handles.
+ *
+ * Provides common lifecycle methods shared by {@link McpFetchHandle},
+ * {@link McpXhrHandle}, and {@link McpHttpHandle}.
+ *
+ * ## State Machine
+ *
+ * ```
+ * [active] --stop()--> [inactive] --start()--> [active]
+ *    |                     |
+ *    +-----restore()-------+-----> [terminated]
+ * ```
+ *
+ * - **active** (initial): Requests are proxied through MCP
+ * - **inactive**: Requests use native implementations (reversible with `start()`)
+ * - **terminated**: Wrapper is permanently uninstalled (irreversible)
+ */
+export interface McpHttpHandleBase {
+  /**
+   * Pause interception. Requests will use native implementations until `start()` is called.
+   * This is reversible, unlike `restore()`.
+   */
+  stop: () => void;
+  /**
+   * Resume interception after `stop()` was called.
+   * Has no effect if already active or after `restore()`.
+   */
+  start: () => void;
+  /**
+   * Check if currently intercepting requests.
+   * Returns `false` after `stop()` or `restore()`.
+   */
+  isActive: () => boolean;
+  /**
+   * Permanently uninstall the wrapper and restore native implementations.
+   * **This is irreversible** - calling `start()` after `restore()` has no effect.
+   * Use for cleanup when the MCP app is being unmounted.
+   */
+  restore: () => void;
 }
 
 /**
@@ -189,18 +232,7 @@ export interface McpHttpOptions extends McpHttpBaseOptions {
 /**
  * Handle returned from initMcpHttp for controlling both fetch and XHR wrappers.
  *
- * ## State Machine
- *
- * ```
- * [active] --stop()--> [inactive] --start()--> [active]
- *    |                     |
- *    +-----restore()-------+-----> [terminated]
- * ```
- *
- * - **active** (initial): Requests matching `interceptPaths` are proxied through MCP
- * - **inactive**: All requests use native implementations (reversible with `start()`)
- * - **terminated**: Wrappers are permanently uninstalled (irreversible)
- *
+ * Extends {@link McpHttpHandleBase} with combined control over both wrappers.
  * Operations apply to both fetch and XHR wrappers simultaneously.
  *
  * @example
@@ -216,27 +248,4 @@ export interface McpHttpOptions extends McpHttpBaseOptions {
  * handle.restore(); // Cannot restart after this
  * ```
  */
-export interface McpHttpHandle {
-  /**
-   * Pause interception for both fetch and XHR.
-   * Requests will use native implementations until `start()` is called.
-   * This is reversible, unlike `restore()`.
-   */
-  stop: () => void;
-  /**
-   * Resume interception after `stop()` was called.
-   * Has no effect if already active or after `restore()`.
-   */
-  start: () => void;
-  /**
-   * Check if currently intercepting requests.
-   * Returns `false` after `stop()` or `restore()`.
-   */
-  isActive: () => boolean;
-  /**
-   * Permanently uninstall both wrappers and restore native implementations.
-   * **This is irreversible** - calling `start()` after `restore()` has no effect.
-   * Use for cleanup when the MCP app is being unmounted.
-   */
-  restore: () => void;
-}
+export interface McpHttpHandle extends McpHttpHandleBase {}
