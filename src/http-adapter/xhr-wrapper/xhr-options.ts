@@ -20,11 +20,11 @@ export interface McpXhrOptions extends McpHttpBaseOptions {
    * @returns `true` to intercept and proxy through MCP, `false` for native XHR
    *
    * @example
-   * ```ts
-   * shouldIntercept: (method, url) => {
+   * ```ts source="./xhr.examples.ts#McpXhrOptions_shouldIntercept_basic"
+   * const shouldIntercept = (method: string, url: string) => {
    *   // Only intercept POST requests to /api
-   *   return method === 'POST' && url.startsWith('/api');
-   * }
+   *   return method === "POST" && url.startsWith("/api");
+   * };
    * ```
    */
   shouldIntercept?: (method: string, url: string) => boolean;
@@ -46,12 +46,14 @@ export interface McpXhrOptions extends McpHttpBaseOptions {
  * - **terminated**: Wrapper is permanently uninstalled (irreversible)
  *
  * @example
- * ```ts
+ * ```ts source="./xhr.examples.ts#McpXhrHandle_lifecycle_basic"
  * const handle = initMcpXhr(app);
  *
  * // Temporarily disable interception
  * handle.stop();
  * const xhr = new XMLHttpRequest(); // Uses native XHR
+ * xhr.open("GET", "/api/direct");
+ * xhr.send();
  * handle.start();
  *
  * // Permanent cleanup (e.g., on unmount)

@@ -1,27 +1,49 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { describe, expect } from "vitest";
+import { http, HttpResponse } from "msw";
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
-import type { App } from "@/app.ts";
+import type { App } from "../../src/app.ts";
 import {
   createHttpRequestToolHandler,
   initMcpFetch,
   wrapCallToolHandlerWithFetchProxy,
-} from "@/http-adapter/fetch-wrapper/fetch.ts";
+} from "../../src/http-adapter/fetch-wrapper/fetch.ts";
+import { test } from "./test-extend";
 
 function createAppStub(result: CallToolResult) {
-  const callServerTool = vi.fn().mockResolvedValue(result);
-  const getHostCapabilities = vi.fn(() => ({ serverTools: {} }));
+  const calls: Array<{
+    params: { name: string; arguments?: Record<string, unknown> };
+    options?: { signal?: AbortSignal };
+  }> = [];
+  const callServerTool = async (
+    params: { name: string; arguments?: Record<string, unknown> },
+    options?: { signal?: AbortSignal },
+  ) => {
+    calls.push({ params, options });
+    return result;
+  };
+  const getHostCapabilities = () => ({ serverTools: {} });
   return {
     app: { callServerTool, getHostCapabilities } as unknown as App,
-    callServerTool,
+    calls,
+  };
+}
+
+async function readRequest(request: Request): Promise<{
+  url: string;
+  method: string;
+  headers: Record<string, string>;
+  body: string;
+}> {
+  return {
+    url: request.url,
+    method: request.method,
+    headers: Object.fromEntries(request.headers.entries()),
+    body: await request.text(),
   };
 }
 
 describe("fetch-wrapper (browser)", () => {
-  beforeEach(() => {
-    vi.restoreAllMocks();
-  });
-
-  it("intercepts fetch and calls http_request", async () => {
+  test("intercepts fetch and calls http_request", async () => {
     const toolResult: CallToolResult = {
       content: [],
       structuredContent: {
@@ -32,15 +54,9 @@ describe("fetch-wrapper (browser)", () => {
       },
     };
 
-    const { app, callServerTool } = createAppStub(toolResult);
-    const nativeFetch = vi.fn(
-      async () => new Response("native", { status: 200 }),
-    );
+    const { app, calls } = createAppStub(toolResult);
 
-    const handle = initMcpFetch(app, {
-      fetch: nativeFetch,
-      installGlobal: false,
-    });
+    const handle = initMcpFetch(app, { installGlobal: false });
 
     const response = await handle.fetch("/api/time", {
       method: "POST",
@@ -48,47 +64,108 @@ describe("fetch-wrapper (browser)", () => {
       body: JSON.stringify({ a: 1 }),
     });
 
-    expect(nativeFetch).not.toHaveBeenCalled();
-    expect(callServerTool).toHaveBeenCalledTimes(1);
+    expect(calls).toHaveLength(1);
 
-    const call = callServerTool.mock.calls[0]?.[0] as {
-      name: string;
-      arguments: Record<string, unknown>;
-    };
-    expect(call.name).toBe("http_request");
-    expect(call.arguments.url).toBe("/api/time");
-    expect(call.arguments.method).toBe("POST");
-    expect(call.arguments.bodyType).toBe("json");
-    expect(call.arguments.body).toEqual({ a: 1 });
+    const call = calls[0]?.params;
+    expect(call?.name).toBe("http_request");
+    expect(call?.arguments?.url).toBe("/api/time");
+    expect(call?.arguments?.method).toBe("POST");
+    expect(call?.arguments?.bodyType).toBe("json");
+    expect(call?.arguments?.body).toEqual({ a: 1 });
 
     await expect(response.json()).resolves.toEqual({ ok: true });
   });
 
-  it("falls back to native fetch when not connected to MCP host", async () => {
-    const callServerTool = vi.fn();
+  test("falls back to native fetch when not connected to MCP host", async ({
+    worker,
+  }) => {
+    const calls: Array<unknown> = [];
     const app = {
-      callServerTool,
+      callServerTool: async () => {
+        calls.push("called");
+        return { content: [] } as CallToolResult;
+      },
       getHostCapabilities: () => undefined,
     } as unknown as App;
 
-    const nativeFetch = vi.fn(
-      async () => new Response("native", { status: 200 }),
+    worker.use(
+      http.get("/public", () => {
+        return HttpResponse.text("native", { status: 200 });
+      }),
     );
 
     const handle = initMcpFetch(app, {
-      fetch: nativeFetch,
       installGlobal: false,
       fallbackToNative: true,
     });
 
     const response = await handle.fetch("/public");
 
-    expect(callServerTool).not.toHaveBeenCalled();
-    expect(nativeFetch).toHaveBeenCalledTimes(1);
+    expect(calls).toHaveLength(0);
     await expect(response.text()).resolves.toBe("native");
   });
 
-  it("respects interceptPaths", async () => {
+  test("passes Request.signal to callServerTool", async () => {
+    const toolResult: CallToolResult = {
+      content: [],
+      structuredContent: {
+        status: 200,
+        headers: { "content-type": "application/json" },
+        body: { ok: true },
+        bodyType: "json",
+      },
+    };
+
+    const controller = new AbortController();
+    const calls: Array<{ options?: { signal?: AbortSignal } }> = [];
+    const app = {
+      callServerTool: async (
+        _params: { name: string; arguments?: Record<string, unknown> },
+        options?: { signal?: AbortSignal },
+      ) => {
+        calls.push({ options });
+        return toolResult;
+      },
+      getHostCapabilities: () => ({ serverTools: {} }),
+    } as unknown as App;
+
+    const handle = initMcpFetch(app, { installGlobal: false });
+
+    const request = new Request("/api/signal", { signal: controller.signal });
+    const response = await handle.fetch(request);
+
+    expect(calls).toHaveLength(1);
+    expect(calls[0]?.options?.signal).toBeDefined();
+    expect(calls[0]?.options?.signal?.aborted).toBe(false);
+    await expect(response.json()).resolves.toEqual({ ok: true });
+  });
+
+  test("throws AbortError for pre-aborted Request.signal", async () => {
+    const toolResult: CallToolResult = {
+      content: [],
+      structuredContent: {
+        status: 200,
+        headers: { "content-type": "application/json" },
+        body: { ok: true },
+        bodyType: "json",
+      },
+    };
+
+    const { app, calls } = createAppStub(toolResult);
+
+    const handle = initMcpFetch(app, { installGlobal: false });
+
+    const controller = new AbortController();
+    controller.abort();
+    const request = new Request("/api/abort", { signal: controller.signal });
+
+    await expect(handle.fetch(request)).rejects.toMatchObject({
+      name: "AbortError",
+    });
+    expect(calls).toHaveLength(0);
+  });
+
+  test("respects interceptPaths", async ({ worker }) => {
     const toolResult: CallToolResult = {
       content: [],
       structuredContent: {
@@ -98,25 +175,26 @@ describe("fetch-wrapper (browser)", () => {
         bodyType: "text",
       },
     };
-    const { app, callServerTool } = createAppStub(toolResult);
-    const nativeFetch = vi.fn(
-      async () => new Response("native", { status: 200 }),
+    const { app, calls } = createAppStub(toolResult);
+
+    worker.use(
+      http.get("/public", () => HttpResponse.text("native", { status: 200 })),
     );
 
     const handle = initMcpFetch(app, {
-      fetch: nativeFetch,
       installGlobal: false,
       interceptPaths: ["/api"],
     });
 
     const response = await handle.fetch("/public");
 
-    expect(callServerTool).not.toHaveBeenCalled();
-    expect(nativeFetch).toHaveBeenCalledTimes(1);
+    expect(calls).toHaveLength(0);
     await expect(response.text()).resolves.toBe("native");
   });
 
-  it("skips interception for absolute URLs when disallowed", async () => {
+  test("skips interception for absolute URLs when disallowed", async ({
+    worker,
+  }) => {
     const toolResult: CallToolResult = {
       content: [],
       structuredContent: {
@@ -126,25 +204,26 @@ describe("fetch-wrapper (browser)", () => {
         bodyType: "text",
       },
     };
-    const { app, callServerTool } = createAppStub(toolResult);
-    const nativeFetch = vi.fn(
-      async () => new Response("native", { status: 200 }),
+    const { app, calls } = createAppStub(toolResult);
+
+    worker.use(
+      http.get("https://example.com/api", () =>
+        HttpResponse.text("native", { status: 200 }),
+      ),
     );
 
     const handle = initMcpFetch(app, {
-      fetch: nativeFetch,
       installGlobal: false,
       allowAbsoluteUrls: false,
     });
 
     const response = await handle.fetch("https://example.com/api");
 
-    expect(callServerTool).not.toHaveBeenCalled();
-    expect(nativeFetch).toHaveBeenCalledTimes(1);
+    expect(calls).toHaveLength(0);
     await expect(response.text()).resolves.toBe("native");
   });
 
-  it("serializes text body correctly", async () => {
+  test("serializes text body correctly", async () => {
     const toolResult: CallToolResult = {
       content: [],
       structuredContent: {
@@ -154,15 +233,9 @@ describe("fetch-wrapper (browser)", () => {
         bodyType: "text",
       },
     };
-    const { app, callServerTool } = createAppStub(toolResult);
-    const nativeFetch = vi.fn(
-      async () => new Response("native", { status: 200 }),
-    );
+    const { app, calls } = createAppStub(toolResult);
 
-    const handle = initMcpFetch(app, {
-      fetch: nativeFetch,
-      installGlobal: false,
-    });
+    const handle = initMcpFetch(app, { installGlobal: false });
 
     await handle.fetch("/api/text", {
       method: "POST",
@@ -170,15 +243,12 @@ describe("fetch-wrapper (browser)", () => {
       body: "Hello, World!",
     });
 
-    const call = callServerTool.mock.calls[0]?.[0] as {
-      name: string;
-      arguments: Record<string, unknown>;
-    };
-    expect(call.arguments.bodyType).toBe("text");
-    expect(call.arguments.body).toBe("Hello, World!");
+    const call = calls[0]?.params;
+    expect(call?.arguments?.bodyType).toBe("text");
+    expect(call?.arguments?.body).toBe("Hello, World!");
   });
 
-  it("serializes URLSearchParams body as urlEncoded", async () => {
+  test("serializes URLSearchParams body as urlEncoded", async () => {
     const toolResult: CallToolResult = {
       content: [],
       structuredContent: {
@@ -188,15 +258,9 @@ describe("fetch-wrapper (browser)", () => {
         bodyType: "text",
       },
     };
-    const { app, callServerTool } = createAppStub(toolResult);
-    const nativeFetch = vi.fn(
-      async () => new Response("native", { status: 200 }),
-    );
+    const { app, calls } = createAppStub(toolResult);
 
-    const handle = initMcpFetch(app, {
-      fetch: nativeFetch,
-      installGlobal: false,
-    });
+    const handle = initMcpFetch(app, { installGlobal: false });
 
     const params = new URLSearchParams();
     params.set("foo", "bar");
@@ -207,15 +271,12 @@ describe("fetch-wrapper (browser)", () => {
       body: params,
     });
 
-    const call = callServerTool.mock.calls[0]?.[0] as {
-      name: string;
-      arguments: Record<string, unknown>;
-    };
-    expect(call.arguments.bodyType).toBe("urlEncoded");
-    expect(call.arguments.body).toBe("foo=bar&baz=qux");
+    const call = calls[0]?.params;
+    expect(call?.arguments?.bodyType).toBe("urlEncoded");
+    expect(call?.arguments?.body).toBe("foo=bar&baz=qux");
   });
 
-  it("serializes FormData body with fields", async () => {
+  test("serializes FormData body with fields", async () => {
     const toolResult: CallToolResult = {
       content: [],
       structuredContent: {
@@ -225,15 +286,9 @@ describe("fetch-wrapper (browser)", () => {
         bodyType: "text",
       },
     };
-    const { app, callServerTool } = createAppStub(toolResult);
-    const nativeFetch = vi.fn(
-      async () => new Response("native", { status: 200 }),
-    );
+    const { app, calls } = createAppStub(toolResult);
 
-    const handle = initMcpFetch(app, {
-      fetch: nativeFetch,
-      installGlobal: false,
-    });
+    const handle = initMcpFetch(app, { installGlobal: false });
 
     const formData = new FormData();
     formData.append("name", "John");
@@ -244,18 +299,15 @@ describe("fetch-wrapper (browser)", () => {
       body: formData,
     });
 
-    const call = callServerTool.mock.calls[0]?.[0] as {
-      name: string;
-      arguments: Record<string, unknown>;
-    };
-    expect(call.arguments.bodyType).toBe("formData");
-    expect(call.arguments.body).toEqual([
+    const call = calls[0]?.params;
+    expect(call?.arguments?.bodyType).toBe("formData");
+    expect(call?.arguments?.body).toEqual([
       { name: "name", value: "John" },
       { name: "age", value: "30" },
     ]);
   });
 
-  it("serializes Blob body as base64", async () => {
+  test("serializes Blob body as base64", async () => {
     const toolResult: CallToolResult = {
       content: [],
       structuredContent: {
@@ -265,15 +317,9 @@ describe("fetch-wrapper (browser)", () => {
         bodyType: "text",
       },
     };
-    const { app, callServerTool } = createAppStub(toolResult);
-    const nativeFetch = vi.fn(
-      async () => new Response("native", { status: 200 }),
-    );
+    const { app, calls } = createAppStub(toolResult);
 
-    const handle = initMcpFetch(app, {
-      fetch: nativeFetch,
-      installGlobal: false,
-    });
+    const handle = initMcpFetch(app, { installGlobal: false });
 
     const bytes = new TextEncoder().encode("Hello");
     const blob = new Blob([bytes], { type: "application/octet-stream" });
@@ -283,15 +329,12 @@ describe("fetch-wrapper (browser)", () => {
       body: blob,
     });
 
-    const call = callServerTool.mock.calls[0]?.[0] as {
-      name: string;
-      arguments: Record<string, unknown>;
-    };
-    expect(call.arguments.bodyType).toBe("base64");
-    expect(call.arguments.body).toBe(btoa("Hello"));
+    const call = calls[0]?.params;
+    expect(call?.arguments?.bodyType).toBe("base64");
+    expect(call?.arguments?.body).toBe(btoa("Hello"));
   });
 
-  it("serializes ArrayBuffer body as base64", async () => {
+  test("serializes ArrayBuffer body as base64", async () => {
     const toolResult: CallToolResult = {
       content: [],
       structuredContent: {
@@ -301,15 +344,9 @@ describe("fetch-wrapper (browser)", () => {
         bodyType: "text",
       },
     };
-    const { app, callServerTool } = createAppStub(toolResult);
-    const nativeFetch = vi.fn(
-      async () => new Response("native", { status: 200 }),
-    );
+    const { app, calls } = createAppStub(toolResult);
 
-    const handle = initMcpFetch(app, {
-      fetch: nativeFetch,
-      installGlobal: false,
-    });
+    const handle = initMcpFetch(app, { installGlobal: false });
 
     const bytes = new Uint8Array([1, 2, 3, 4, 5]);
 
@@ -318,15 +355,12 @@ describe("fetch-wrapper (browser)", () => {
       body: bytes.buffer,
     });
 
-    const call = callServerTool.mock.calls[0]?.[0] as {
-      name: string;
-      arguments: Record<string, unknown>;
-    };
-    expect(call.arguments.bodyType).toBe("base64");
-    expect(call.arguments.body).toBe(btoa(String.fromCharCode(...bytes)));
+    const call = calls[0]?.params;
+    expect(call?.arguments?.bodyType).toBe("base64");
+    expect(call?.arguments?.body).toBe(btoa(String.fromCharCode(...bytes)));
   });
 
-  it("includes query strings in tool url", async () => {
+  test("includes query strings in tool url", async () => {
     const toolResult: CallToolResult = {
       content: [],
       structuredContent: {
@@ -336,20 +370,17 @@ describe("fetch-wrapper (browser)", () => {
         bodyType: "json",
       },
     };
-    const { app, callServerTool } = createAppStub(toolResult);
+    const { app, calls } = createAppStub(toolResult);
 
     const handle = initMcpFetch(app, { installGlobal: false });
 
     await handle.fetch("/api/search?q=test&limit=1");
 
-    const call = callServerTool.mock.calls[0]?.[0] as {
-      name: string;
-      arguments: Record<string, unknown>;
-    };
-    expect(call.arguments.url).toBe("/api/search?q=test&limit=1");
+    const call = calls[0]?.params;
+    expect(call?.arguments?.url).toBe("/api/search?q=test&limit=1");
   });
 
-  it("uses custom toolName option", async () => {
+  test("uses custom toolName option", async () => {
     const toolResult: CallToolResult = {
       content: [],
       structuredContent: {
@@ -359,7 +390,7 @@ describe("fetch-wrapper (browser)", () => {
         bodyType: "text",
       },
     };
-    const { app, callServerTool } = createAppStub(toolResult);
+    const { app, calls } = createAppStub(toolResult);
 
     const handle = initMcpFetch(app, {
       installGlobal: false,
@@ -368,14 +399,11 @@ describe("fetch-wrapper (browser)", () => {
 
     await handle.fetch("/api/custom");
 
-    const call = callServerTool.mock.calls[0]?.[0] as {
-      name: string;
-      arguments: Record<string, unknown>;
-    };
-    expect(call.name).toBe("custom_request");
+    const call = calls[0]?.params;
+    expect(call?.name).toBe("custom_request");
   });
 
-  it("respects custom shouldIntercept", async () => {
+  test("respects custom shouldIntercept", async ({ worker }) => {
     const toolResult: CallToolResult = {
       content: [],
       structuredContent: {
@@ -385,25 +413,24 @@ describe("fetch-wrapper (browser)", () => {
         bodyType: "text",
       },
     };
-    const { app, callServerTool } = createAppStub(toolResult);
-    const nativeFetch = vi.fn(
-      async () => new Response("native", { status: 200 }),
+    const { app, calls } = createAppStub(toolResult);
+
+    worker.use(
+      http.get("/api/nope", () => HttpResponse.text("native", { status: 200 })),
     );
 
     const handle = initMcpFetch(app, {
-      fetch: nativeFetch,
       installGlobal: false,
       shouldIntercept: () => false,
     });
 
     const response = await handle.fetch("/api/nope");
 
-    expect(callServerTool).not.toHaveBeenCalled();
-    expect(nativeFetch).toHaveBeenCalledTimes(1);
+    expect(calls).toHaveLength(0);
     await expect(response.text()).resolves.toBe("native");
   });
 
-  it("throws AbortError when signal is already aborted", async () => {
+  test("throws AbortError when signal is already aborted", async () => {
     const toolResult: CallToolResult = {
       content: [],
       structuredContent: {
@@ -424,7 +451,7 @@ describe("fetch-wrapper (browser)", () => {
     ).rejects.toMatchObject({ name: "AbortError" });
   });
 
-  it("handles text response bodies", async () => {
+  test("handles text response bodies", async () => {
     const toolResult: CallToolResult = {
       content: [],
       structuredContent: {
@@ -442,7 +469,7 @@ describe("fetch-wrapper (browser)", () => {
     await expect(response.text()).resolves.toBe("hello");
   });
 
-  it("handles urlEncoded response bodies", async () => {
+  test("handles urlEncoded response bodies", async () => {
     const toolResult: CallToolResult = {
       content: [],
       structuredContent: {
@@ -460,7 +487,7 @@ describe("fetch-wrapper (browser)", () => {
     await expect(response.text()).resolves.toBe("a=1&b=2");
   });
 
-  it("handles base64 response bodies", async () => {
+  test("handles base64 response bodies", async () => {
     const bytes = new Uint8Array([1, 2, 3]);
     const base64 = btoa(String.fromCharCode(...bytes));
     const toolResult: CallToolResult = {
@@ -481,7 +508,7 @@ describe("fetch-wrapper (browser)", () => {
     expect(new Uint8Array(buffer)).toEqual(bytes);
   });
 
-  it("handles empty body responses", async () => {
+  test("handles empty body responses", async () => {
     const toolResult: CallToolResult = {
       content: [],
       structuredContent: {
@@ -499,7 +526,7 @@ describe("fetch-wrapper (browser)", () => {
     await expect(response.text()).resolves.toBe("");
   });
 
-  it("replaces global fetch when installGlobal is true", async () => {
+  test("replaces global fetch when installGlobal is true", async () => {
     const originalFetch = globalThis.fetch;
     const toolResult: CallToolResult = {
       content: [],
@@ -525,7 +552,9 @@ describe("fetch-wrapper (browser)", () => {
     }
   });
 
-  it("stop() pauses interception and isActive() returns false", async () => {
+  test("stop() pauses interception and isActive() returns false", async ({
+    worker,
+  }) => {
     const toolResult: CallToolResult = {
       content: [],
       structuredContent: {
@@ -535,31 +564,31 @@ describe("fetch-wrapper (browser)", () => {
         bodyType: "json",
       },
     };
-    const { app, callServerTool } = createAppStub(toolResult);
-    const nativeFetch = vi.fn(
-      async () => new Response("native", { status: 200 }),
+    const { app, calls } = createAppStub(toolResult);
+
+    worker.use(
+      http.get("/api/test2", () =>
+        HttpResponse.text("native", { status: 200 }),
+      ),
     );
 
     const handle = initMcpFetch(app, {
-      fetch: nativeFetch,
       installGlobal: false,
     });
 
     expect(handle.isActive()).toBe(true);
 
     await handle.fetch("/api/test1");
-    expect(callServerTool).toHaveBeenCalledTimes(1);
-    expect(nativeFetch).not.toHaveBeenCalled();
+    expect(calls).toHaveLength(1);
 
     handle.stop();
     expect(handle.isActive()).toBe(false);
 
     await handle.fetch("/api/test2");
-    expect(callServerTool).toHaveBeenCalledTimes(1);
-    expect(nativeFetch).toHaveBeenCalledTimes(1);
+    expect(calls).toHaveLength(1);
   });
 
-  it("start() resumes interception after stop()", async () => {
+  test("start() resumes interception after stop()", async () => {
     const toolResult: CallToolResult = {
       content: [],
       structuredContent: {
@@ -569,13 +598,9 @@ describe("fetch-wrapper (browser)", () => {
         bodyType: "json",
       },
     };
-    const { app, callServerTool } = createAppStub(toolResult);
-    const nativeFetch = vi.fn(
-      async () => new Response("native", { status: 200 }),
-    );
+    const { app, calls } = createAppStub(toolResult);
 
     const handle = initMcpFetch(app, {
-      fetch: nativeFetch,
       installGlobal: false,
     });
 
@@ -586,33 +611,27 @@ describe("fetch-wrapper (browser)", () => {
     expect(handle.isActive()).toBe(true);
 
     await handle.fetch("/api/test");
-    expect(callServerTool).toHaveBeenCalledTimes(1);
-    expect(nativeFetch).not.toHaveBeenCalled();
+    expect(calls).toHaveLength(1);
   });
 });
 
 describe("fetch proxy handler (browser)", () => {
-  it("proxies requests, strips forbidden headers, and returns structured content", async () => {
-    const fetchSpy = vi.fn(
-      async (_input: RequestInfo | URL, init?: RequestInit) => {
-        const headers = new Headers(init?.headers);
-        expect(headers.get("authorization")).toBeNull();
-        expect(headers.get("x-server")).toBe("1");
-        expect(headers.get("x-client")).toBe("2");
-        expect(init?.body).toBe(JSON.stringify({ foo: "bar" }));
+  test("proxies requests, strips forbidden headers, and returns structured content", async ({
+    worker,
+  }) => {
+    const requests: Array<Awaited<ReturnType<typeof readRequest>>> = [];
 
-        return new Response(JSON.stringify({ ok: true }), {
-          status: 200,
-          headers: { "content-type": "application/json" },
-        });
-      },
+    worker.use(
+      http.post("https://example.com/api/test", async ({ request }) => {
+        requests.push(await readRequest(request));
+        return HttpResponse.json({ ok: true }, { status: 200 });
+      }),
     );
 
     const handler = createHttpRequestToolHandler({
       baseUrl: "https://example.com",
       allowOrigins: ["https://example.com"],
       allowPaths: ["/api"],
-      fetch: fetchSpy,
       headers: { "x-server": "1" },
     });
 
@@ -630,7 +649,13 @@ describe("fetch proxy handler (browser)", () => {
       },
     });
 
-    expect(fetchSpy).toHaveBeenCalledTimes(1);
+    expect(requests).toHaveLength(1);
+    const request = requests[0];
+    expect(request.headers.authorization).toBeUndefined();
+    expect(request.headers["x-server"]).toBe("1");
+    expect(request.headers["x-client"]).toBe("2");
+    expect(request.body).toBe(JSON.stringify({ foo: "bar" }));
+
     expect(result.structuredContent).toMatchObject({
       status: 200,
       bodyType: "json",
@@ -638,20 +663,20 @@ describe("fetch proxy handler (browser)", () => {
     });
   });
 
-  it("treats falsy JSON values as json", async () => {
-    const fetchSpy = vi.fn(
-      async () =>
-        new Response("false", {
+  test("treats falsy JSON values as json", async ({ worker }) => {
+    worker.use(
+      http.get("https://example.com/api/test", () =>
+        HttpResponse.text("false", {
           status: 200,
           headers: { "content-type": "application/json" },
         }),
+      ),
     );
 
     const handler = createHttpRequestToolHandler({
       baseUrl: "https://example.com",
       allowOrigins: ["https://example.com"],
       allowPaths: ["/api"],
-      fetch: fetchSpy,
     });
 
     const result = await handler({
@@ -666,12 +691,11 @@ describe("fetch proxy handler (browser)", () => {
     });
   });
 
-  it("rejects disallowed paths", async () => {
+  test("rejects disallowed paths", async () => {
     const handler = createHttpRequestToolHandler({
       baseUrl: "https://example.com",
       allowOrigins: ["https://example.com"],
       allowPaths: ["/api"],
-      fetch: vi.fn(),
     });
 
     await expect(
@@ -682,13 +706,12 @@ describe("fetch proxy handler (browser)", () => {
     ).rejects.toThrow("Path not allowed");
   });
 
-  it("rejects oversized bodies", async () => {
+  test("rejects oversized bodies", async () => {
     const handler = createHttpRequestToolHandler({
       baseUrl: "https://example.com",
       allowOrigins: ["https://example.com"],
       allowPaths: ["/api"],
       maxBodySize: 10,
-      fetch: vi.fn(),
     });
 
     await expect(
@@ -703,28 +726,52 @@ describe("fetch proxy handler (browser)", () => {
     ).rejects.toThrow("exceeds maximum allowed size");
   });
 
-  it("delegates non-http_request tools", async () => {
-    const baseHandler = vi.fn(async () => ({
-      content: [{ type: "text", text: "ok" }],
-    }));
+  test("allows base64 object bodies within size limits", async ({ worker }) => {
+    worker.use(
+      http.get("https://example.com/api/test", () =>
+        HttpResponse.text("ok", { status: 200 }),
+      ),
+    );
+
+    const handler = createHttpRequestToolHandler({
+      baseUrl: "https://example.com",
+      allowOrigins: ["https://example.com"],
+      allowPaths: ["/api"],
+      maxBodySize: 10,
+    });
+
+    await handler({
+      name: "http_request",
+      arguments: {
+        url: "/api/test",
+        bodyType: "base64",
+        body: { data: "a".repeat(8) },
+      },
+    });
+  });
+
+  test("delegates non-http_request tools", async () => {
+    const calls: Array<{ name: string }> = [];
+    const baseHandler = async () => {
+      calls.push({ name: "other_tool" });
+      return { content: [{ type: "text", text: "ok" }] };
+    };
 
     const wrapped = wrapCallToolHandlerWithFetchProxy(baseHandler, {
       baseUrl: "https://example.com",
       allowOrigins: ["https://example.com"],
       allowPaths: ["/api"],
-      fetch: vi.fn(async () => new Response("{}", { status: 200 })),
     });
 
     await wrapped({ name: "other_tool", arguments: {} }, {});
 
-    expect(baseHandler).toHaveBeenCalledTimes(1);
+    expect(calls).toHaveLength(1);
   });
 
-  it("rejects disallowed origins", async () => {
+  test("rejects disallowed origins", async () => {
     const handler = createHttpRequestToolHandler({
       allowOrigins: ["https://example.com"],
       allowPaths: ["/"],
-      fetch: vi.fn(),
     });
 
     await expect(
@@ -737,21 +784,22 @@ describe("fetch proxy handler (browser)", () => {
     ).rejects.toThrow("Origin not allowed");
   });
 
-  it("applies headers function and preserves allowed headers", async () => {
-    const fetchSpy = vi.fn(
-      async (_input: RequestInfo | URL, init?: RequestInit) => {
-        const headers = new Headers(init?.headers);
-        expect(headers.get("x-dynamic")).toBe("POST");
-        expect(headers.get("x-client")).toBe("1");
-        return new Response("ok", { status: 200 });
-      },
+  test("applies headers function and preserves allowed headers", async ({
+    worker,
+  }) => {
+    const requests: Array<Awaited<ReturnType<typeof readRequest>>> = [];
+
+    worker.use(
+      http.post("https://example.com/api/test", async ({ request }) => {
+        requests.push(await readRequest(request));
+        return HttpResponse.text("ok", { status: 200 });
+      }),
     );
 
     const handler = createHttpRequestToolHandler({
       baseUrl: "https://example.com",
       allowOrigins: ["https://example.com"],
       allowPaths: ["/api"],
-      fetch: fetchSpy,
       headers: (request) => ({
         "x-dynamic": String(request.method ?? ""),
       }),
@@ -768,34 +816,101 @@ describe("fetch proxy handler (browser)", () => {
       },
     });
 
-    expect(fetchSpy).toHaveBeenCalledTimes(1);
+    expect(requests).toHaveLength(1);
+    const request = requests[0];
+    expect(request.headers["x-dynamic"]).toBe("POST");
+    expect(request.headers["x-client"]).toBe("1");
   });
 
-  it("strips all forbidden headers", async () => {
-    const fetchSpy = vi.fn(
-      async (_input: RequestInfo | URL, init?: RequestInit) => {
-        const headers = new Headers(init?.headers);
-        const forbidden = [
-          "cookie",
-          "set-cookie",
-          "authorization",
-          "proxy-authorization",
-          "host",
-          "origin",
-          "referer",
-        ];
-        for (const name of forbidden) {
-          expect(headers.has(name)).toBe(false);
-        }
-        return new Response("ok", { status: 200 });
+  test("merges HeadersInit entries from options", async ({ worker }) => {
+    const requests: Array<Awaited<ReturnType<typeof readRequest>>> = [];
+
+    worker.use(
+      http.post("https://example.com/api/test", async ({ request }) => {
+        requests.push(await readRequest(request));
+        return HttpResponse.text("ok", { status: 200 });
+      }),
+    );
+
+    const serverHeaders = new Headers();
+    serverHeaders.set("x-server", "1");
+
+    const handler = createHttpRequestToolHandler({
+      baseUrl: "https://example.com",
+      allowOrigins: ["https://example.com"],
+      allowPaths: ["/api"],
+      headers: serverHeaders,
+    });
+
+    await handler({
+      name: "http_request",
+      arguments: {
+        method: "POST",
+        url: "/api/test",
+        headers: { "x-client": "2" },
+        body: "ok",
+        bodyType: "text",
       },
+    });
+
+    expect(requests).toHaveLength(1);
+    const request = requests[0];
+    expect(request.headers["x-server"]).toBe("1");
+    expect(request.headers["x-client"]).toBe("2");
+  });
+
+  test("drops content-type headers for formData bodies", async ({ worker }) => {
+    const requests: Array<Awaited<ReturnType<typeof readRequest>>> = [];
+
+    worker.use(
+      http.post("https://example.com/api/upload", async ({ request }) => {
+        requests.push(await readRequest(request));
+        return HttpResponse.text("ok", { status: 200 });
+      }),
     );
 
     const handler = createHttpRequestToolHandler({
       baseUrl: "https://example.com",
       allowOrigins: ["https://example.com"],
       allowPaths: ["/api"],
-      fetch: fetchSpy,
+    });
+
+    await handler({
+      name: "http_request",
+      arguments: {
+        method: "POST",
+        url: "/api/upload",
+        headers: {
+          "content-type": "multipart/form-data; boundary=stale",
+          "content-length": "123",
+        },
+        bodyType: "formData",
+        body: [{ name: "note", value: "hello" }],
+      },
+    });
+
+    expect(requests).toHaveLength(1);
+    const request = requests[0];
+    expect(request.headers["content-type"]).not.toBe(
+      "multipart/form-data; boundary=stale",
+    );
+    expect(request.headers["content-length"]).not.toBe("123");
+  });
+
+  test("strips all forbidden headers", async ({ worker }) => {
+    const requests: Array<Awaited<ReturnType<typeof readRequest>>> = [];
+
+    worker.use(
+      http.get("https://example.com/api/headers", async ({ request }) => {
+        requests.push(await readRequest(request));
+        return HttpResponse.text("ok", { status: 200 });
+      }),
+    );
+
+    const handler = createHttpRequestToolHandler({
+      baseUrl: "https://example.com",
+      allowOrigins: ["https://example.com"],
+      allowPaths: ["/api"],
     });
 
     await handler({
@@ -814,22 +929,37 @@ describe("fetch proxy handler (browser)", () => {
         },
       },
     });
+
+    expect(requests).toHaveLength(1);
+    const request = requests[0];
+    const forbidden = [
+      "cookie",
+      "set-cookie",
+      "authorization",
+      "proxy-authorization",
+      "host",
+      "origin",
+      "referer",
+    ];
+    for (const name of forbidden) {
+      expect(request.headers[name]).toBeUndefined();
+    }
   });
 
-  it("passes credentials and cache options to fetch", async () => {
-    const fetchSpy = vi.fn(
-      async (_input: RequestInfo | URL, init?: RequestInit) => {
-        expect(init?.credentials).toBe("include");
-        expect(init?.cache).toBe("no-store");
-        return new Response("ok", { status: 200 });
-      },
+  test("passes credentials and cache options to fetch", async ({ worker }) => {
+    let captured: Request | null = null;
+
+    worker.use(
+      http.get("https://example.com/api/cache", ({ request }) => {
+        captured = request;
+        return HttpResponse.text("ok", { status: 200 });
+      }),
     );
 
     const handler = createHttpRequestToolHandler({
       baseUrl: "https://example.com",
       allowOrigins: ["https://example.com"],
       allowPaths: ["/api"],
-      fetch: fetchSpy,
       credentials: "include",
     });
 
@@ -840,9 +970,12 @@ describe("fetch proxy handler (browser)", () => {
         cache: "no-store",
       },
     });
+
+    expect(captured?.credentials).toBe("include");
+    expect(captured?.cache).toBe("no-store");
   });
 
-  it("throws when tool returns isError", async () => {
+  test("throws when tool returns isError", async () => {
     const toolResult: CallToolResult = {
       isError: true,
       content: [{ type: "text", text: "boom" }],

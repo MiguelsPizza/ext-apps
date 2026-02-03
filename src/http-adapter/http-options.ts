@@ -94,7 +94,7 @@ export interface McpHttpBaseOptions {
  * Options for the HTTP proxy tool handler (server-side).
  *
  * Uses browser types where applicable (RequestCredentials, HeadersInit, typeof fetch)
- * because this runs in the browser context proxying requests through MCP.
+ * because the handler adapts HTTP-like requests and may run in browser or server environments.
  */
 export interface McpHttpProxyOptions {
   /**
@@ -197,12 +197,12 @@ export interface McpHttpOptions extends McpHttpBaseOptions {
  * Operations apply to both fetch and XHR wrappers simultaneously.
  *
  * @example
- * ```ts
+ * ```ts source="./http-options.examples.ts#McpHttpHandle_lifecycle_basic"
  * const handle = initMcpHttp(app);
  *
  * // Temporarily disable all interception
  * handle.stop();
- * await fetch('/api/direct'); // Uses native fetch
+ * await fetch("/api/direct"); // Uses native fetch
  * handle.start();
  *
  * // Permanent cleanup (e.g., on unmount)

@@ -82,16 +82,17 @@ The http-adapter automatically detects the runtime environment:
 
 ```typescript
 // In src/http-adapter/fetch-wrapper/fetch.ts
-const isMcpApp = options.isMcpApp ?? (() =>
-  Boolean(app.getHostCapabilities()?.serverTools)
-);
+const isMcpApp =
+  options.isMcpApp ?? (() => Boolean(app.getHostCapabilities()?.serverTools));
 ```
 
 When `isMcpApp()` returns:
+
 - `true`: Intercept fetch, route through MCP `http_request` tool
 - `false`: Use native fetch directly (if `fallbackToNative: true`)
 
 Alternative detection methods:
+
 - `window.parent !== window` (iframe detection)
 - `window.self !== window.top` (nested browsing context)
 
@@ -151,15 +152,19 @@ initMcpHttp(app, {
 import { createHttpRequestToolHandler } from "@modelcontextprotocol/ext-apps/fetch-wrapper";
 
 // Register http_request tool that proxies to your HTTP backend
-server.registerTool("http_request", {
-  description: "Proxy HTTP requests from app to backend",
-  inputSchema: httpRequestInputSchema,
-  _meta: { ui: { visibility: ["app"] } },  // App-only, not exposed to model
-}, createHttpRequestToolHandler({
-  baseUrl: "http://localhost:3001",  // Your HTTP backend
-  allowPaths: ["/api/"],
-  allowOrigins: ["http://localhost:3001"],
-}));
+server.registerTool(
+  "http_request",
+  {
+    description: "Proxy HTTP requests from app to backend",
+    inputSchema: httpRequestInputSchema,
+    _meta: { ui: { visibility: ["app"] } }, // App-only, not exposed to model
+  },
+  createHttpRequestToolHandler({
+    baseUrl: "http://localhost:3001", // Your HTTP backend
+    allowPaths: ["/api/"],
+    allowOrigins: ["http://localhost:3001"],
+  }),
+);
 ```
 
 ### HTTP Backend (Any Language/Framework)
@@ -167,6 +172,7 @@ server.registerTool("http_request", {
 The beauty of this pattern: your HTTP backend is completely MCP-agnostic.
 
 **Hono (TypeScript):**
+
 ```typescript
 import { Hono } from "hono";
 
@@ -175,11 +181,15 @@ app.get("/api/time", (c) => c.json({ time: new Date().toISOString() }));
 ```
 
 **Express (Node.js):**
+
 ```typescript
-app.get("/api/time", (req, res) => res.json({ time: new Date().toISOString() }));
+app.get("/api/time", (req, res) =>
+  res.json({ time: new Date().toISOString() }),
+);
 ```
 
 **Flask (Python):**
+
 ```python
 @app.route("/api/time")
 def get_time():
@@ -230,7 +240,7 @@ Both modes can enforce path restrictions:
 ```typescript
 // Server-side (production)
 createHttpRequestToolHandler({
-  allowPaths: ["/api/"],  // Only /api/* allowed
+  allowPaths: ["/api/"], // Only /api/* allowed
 });
 
 // Client-side (optional, for dev consistency)
@@ -242,6 +252,7 @@ initMcpHttp(app, {
 ### Header Filtering
 
 Sensitive headers are automatically stripped in production:
+
 - `cookie`, `set-cookie`
 - `authorization`, `proxy-authorization`
 - `host`, `origin`, `referer`
@@ -259,8 +270,9 @@ const scopeMap = [
 ];
 
 function requireScopes(request: McpHttpRequest) {
-  const rule = scopeMap.find((entry) =>
-    entry.method === request.method && request.url.startsWith(entry.path),
+  const rule = scopeMap.find(
+    (entry) =>
+      entry.method === request.method && request.url.startsWith(entry.path),
   );
   if (!rule) return;
   // Enforce OAuth scopes here (token validation omitted for brevity)
@@ -271,7 +283,7 @@ function requireScopes(request: McpHttpRequest) {
 
 ```typescript
 createHttpRequestToolHandler({
-  maxBodySize: 10 * 1024 * 1024,  // 10MB default
+  maxBodySize: 10 * 1024 * 1024, // 10MB default
 });
 ```
 
@@ -285,16 +297,16 @@ createHttpRequestToolHandler({
 
 ## Benefits
 
-| Aspect | Benefit |
-|--------|---------|
-| **Development Speed** | Normal web dev workflow, no MCP overhead |
-| **Debugging** | Real network requests visible in DevTools |
-| **Hot Reload** | Works naturally with Vite/webpack |
-| **Testing** | Test backend with curl, Postman, etc. |
-| **Backend Language** | Any HTTP server works (Node, Python, Go, etc.) |
-| **Code Reuse** | Zero duplication between dev/prod |
-| **Auditability** | Full MCP JSON-RPC trail in production |
-| **Security** | Same allowlists enforced in both modes |
+| Aspect                | Benefit                                        |
+| --------------------- | ---------------------------------------------- |
+| **Development Speed** | Normal web dev workflow, no MCP overhead       |
+| **Debugging**         | Real network requests visible in DevTools      |
+| **Hot Reload**        | Works naturally with Vite/webpack              |
+| **Testing**           | Test backend with curl, Postman, etc.          |
+| **Backend Language**  | Any HTTP server works (Node, Python, Go, etc.) |
+| **Code Reuse**        | Zero duplication between dev/prod              |
+| **Auditability**      | Full MCP JSON-RPC trail in production          |
+| **Security**          | Same allowlists enforced in both modes         |
 
 ## Comparison with Tool-Per-Endpoint
 
@@ -315,11 +327,18 @@ await app.callServerTool("add_item", { name: "test" });
 
 ```typescript
 // Server: One generic tool + standard HTTP backend
-server.registerTool("http_request", schema, createHttpRequestToolHandler({ baseUrl }));
+server.registerTool(
+  "http_request",
+  schema,
+  createHttpRequestToolHandler({ baseUrl }),
+);
 
 // App: Standard fetch (works in dev too!)
 await fetch("/api/time");
-await fetch("/api/items", { method: "POST", body: JSON.stringify({ name: "test" }) });
+await fetch("/api/items", {
+  method: "POST",
+  body: JSON.stringify({ name: "test" }),
+});
 ```
 
 The dual-mode pattern is better for REST-backed apps. The tool-per-endpoint approach is still valid for non-HTTP backends or when you want explicit tool semantics.

@@ -92,6 +92,7 @@ The [`examples/`](https://github.com/modelcontextprotocol/ext-apps/tree/main/exa
 <!-- prettier-ignore-end -->
 
 Additional example:
+
 - [**Hono React Server**](https://github.com/modelcontextprotocol/ext-apps/tree/main/examples/hono-react-server) — Dual-mode HTTP pattern (Hono + React, type-safe `hc` client).
 
 ### Running the Examples

@@ -22,11 +22,11 @@ export interface McpFetchOptions extends McpHttpBaseOptions {
    * @returns `true` to intercept and proxy through MCP, `false` for native fetch
    *
    * @example
-   * ```ts
-   * shouldIntercept: (url, request) => {
+   * ```ts source="./fetch.examples.ts#McpFetchOptions_shouldIntercept_basic"
+   * const shouldIntercept = (url: URL, request: Request) => {
    *   // Only intercept POST requests to /api
-   *   return request.method === 'POST' && url.pathname.startsWith('/api');
-   * }
+   *   return request.method === "POST" && url.pathname.startsWith("/api");
+   * };
    * ```
    */
   shouldIntercept?: (url: URL, request: Request) => boolean;
@@ -50,12 +50,12 @@ export interface McpFetchOptions extends McpHttpBaseOptions {
  * - **terminated**: Wrapper is permanently uninstalled (irreversible)
  *
  * @example
- * ```ts
+ * ```ts source="./fetch.examples.ts#McpFetchHandle_lifecycle_basic"
  * const handle = initMcpFetch(app);
  *
  * // Temporarily disable interception
  * handle.stop();
- * await fetch('/api/direct'); // Uses native fetch
+ * await fetch("/api/direct"); // Uses native fetch
  * handle.start();
  *
  * // Permanent cleanup (e.g., on unmount)

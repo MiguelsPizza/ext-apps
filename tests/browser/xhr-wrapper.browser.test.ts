@@ -1,7 +1,8 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, vi } from "vitest";
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
-import type { App } from "@/app.ts";
-import { initMcpXhr } from "@/http-adapter/xhr-wrapper/xhr.ts";
+import type { App } from "../../src/app.ts";
+import { initMcpXhr } from "../../src/http-adapter/xhr-wrapper/xhr.ts";
+import { test } from "./test-extend";
 
 function createAppStub(result: CallToolResult) {
   const callServerTool = vi.fn().mockResolvedValue(result);
@@ -110,8 +111,7 @@ class FakeXMLHttpRequest extends EventTarget {
     return "";
   }
 
-  overrideMimeType(_mime: string): void {
-  }
+  overrideMimeType(_mime: string): void {}
 }
 
 const NativeXMLHttpRequest = globalThis.XMLHttpRequest;
@@ -123,7 +123,7 @@ afterEach(() => {
 });
 
 describe("xhr-wrapper (browser)", () => {
-  it("intercepts XHR and calls http_request", async () => {
+  test("intercepts XHR and calls http_request", async () => {
     const toolResult: CallToolResult = {
       content: [],
       structuredContent: {
@@ -178,7 +178,7 @@ describe("xhr-wrapper (browser)", () => {
     warnSpy.mockRestore();
   });
 
-  it("falls back to native XHR when not connected to MCP host", () => {
+  test("falls back to native XHR when not connected to MCP host", () => {
     globalThis.XMLHttpRequest =
       FakeXMLHttpRequest as unknown as typeof XMLHttpRequest;
 
@@ -196,7 +196,7 @@ describe("xhr-wrapper (browser)", () => {
     expect(FakeXMLHttpRequest.lastRequest?.url).toBe("/public");
   });
 
-  it("respects interceptPaths", () => {
+  test("respects interceptPaths", () => {
     globalThis.XMLHttpRequest =
       FakeXMLHttpRequest as unknown as typeof XMLHttpRequest;
 
@@ -222,7 +222,7 @@ describe("xhr-wrapper (browser)", () => {
     expect(FakeXMLHttpRequest.lastRequest?.url).toBe("/public");
   });
 
-  it("skips interception for absolute URLs when disallowed", () => {
+  test("skips interception for absolute URLs when disallowed", () => {
     globalThis.XMLHttpRequest =
       FakeXMLHttpRequest as unknown as typeof XMLHttpRequest;
 
@@ -248,7 +248,7 @@ describe("xhr-wrapper (browser)", () => {
     expect(FakeXMLHttpRequest.lastRequest?.url).toBe("https://example.com/api");
   });
 
-  it("decodes base64 responses for arraybuffer responseType", async () => {
+  test("decodes base64 responses for arraybuffer responseType", async () => {
     const bytes = new Uint8Array([1, 2, 3]);
     const base64 = btoa(String.fromCharCode(...bytes));
 
@@ -281,7 +281,7 @@ describe("xhr-wrapper (browser)", () => {
     expect(new Uint8Array(response)).toEqual(bytes);
   });
 
-  it("throws for synchronous intercepted requests", () => {
+  test("throws for synchronous intercepted requests", () => {
     const { app } = createAppStub({
       content: [],
       structuredContent: {
@@ -300,7 +300,7 @@ describe("xhr-wrapper (browser)", () => {
     );
   });
 
-  it("serializes text body correctly", async () => {
+  test("serializes text body correctly", async () => {
     const toolResult: CallToolResult = {
       content: [],
       structuredContent: {
@@ -334,7 +334,7 @@ describe("xhr-wrapper (browser)", () => {
     expect(call.arguments.body).toBe("Hello, World!");
   });
 
-  it("serializes URLSearchParams body as urlEncoded", async () => {
+  test("serializes URLSearchParams body as urlEncoded", async () => {
     const toolResult: CallToolResult = {
       content: [],
       structuredContent: {
@@ -371,7 +371,7 @@ describe("xhr-wrapper (browser)", () => {
     expect(call.arguments.body).toBe("foo=bar&baz=qux");
   });
 
-  it("serializes FormData body with fields", async () => {
+  test("serializes FormData body with fields", async () => {
     const toolResult: CallToolResult = {
       content: [],
       structuredContent: {
@@ -411,7 +411,7 @@ describe("xhr-wrapper (browser)", () => {
     ]);
   });
 
-  it("handles text response with default responseType", async () => {
+  test("handles text response with default responseType", async () => {
     const toolResult: CallToolResult = {
       content: [],
       structuredContent: {
@@ -440,7 +440,7 @@ describe("xhr-wrapper (browser)", () => {
     expect(xhr.response).toBe("hello");
   });
 
-  it("handles blob responseType", async () => {
+  test("handles blob responseType", async () => {
     const bytes = new Uint8Array([4, 5, 6]);
     const base64 = btoa(String.fromCharCode(...bytes));
     const toolResult: CallToolResult = {
@@ -473,7 +473,7 @@ describe("xhr-wrapper (browser)", () => {
     expect(new Uint8Array(buffer)).toEqual(bytes);
   });
 
-  it("returns null for document responseType", async () => {
+  test("returns null for document responseType", async () => {
     const toolResult: CallToolResult = {
       content: [],
       structuredContent: {
@@ -502,7 +502,7 @@ describe("xhr-wrapper (browser)", () => {
     expect(xhr.response).toBeNull();
   });
 
-  it("fires readystatechange events in order", async () => {
+  test("fires readystatechange events in order", async () => {
     const toolResult: CallToolResult = {
       content: [],
       structuredContent: {
@@ -535,7 +535,7 @@ describe("xhr-wrapper (browser)", () => {
     expect(states).toEqual([1, 2, 3, 4]);
   });
 
-  it("fires loadstart, progress, load, and loadend events", async () => {
+  test("fires loadstart, progress, load, and loadend events", async () => {
     const toolResult: CallToolResult = {
       content: [],
       structuredContent: {
@@ -572,7 +572,7 @@ describe("xhr-wrapper (browser)", () => {
     expect(events).toEqual(["loadstart", "progress", "load", "loadend"]);
   });
 
-  it("fires error when tool returns isError", async () => {
+  test("fires error when tool returns isError", async () => {
     const toolResult: CallToolResult = {
       isError: true,
       content: [{ type: "text", text: "boom" }],
@@ -594,7 +594,7 @@ describe("xhr-wrapper (browser)", () => {
     expect(xhr.status).toBe(0);
   });
 
-  it("fires timeout when request exceeds timeout", async () => {
+  test("fires timeout when request exceeds timeout", async () => {
     vi.useFakeTimers();
     try {
       const callServerTool = vi.fn(
@@ -630,7 +630,7 @@ describe("xhr-wrapper (browser)", () => {
     }
   });
 
-  it("aborts requests and fires abort event", async () => {
+  test("aborts requests and fires abort event", async () => {
     const pending = new Promise<CallToolResult>(() => {});
     const callServerTool = vi.fn().mockReturnValue(pending);
     const app = {
@@ -654,7 +654,7 @@ describe("xhr-wrapper (browser)", () => {
     expect(xhr.readyState).toBe(0);
   });
 
-  it("throws when setRequestHeader is called before open", () => {
+  test("throws when setRequestHeader is called before open", () => {
     const { app } = createAppStub({
       content: [],
       structuredContent: {
@@ -673,7 +673,7 @@ describe("xhr-wrapper (browser)", () => {
     );
   });
 
-  it("throws when setRequestHeader is called after send", async () => {
+  test("throws when setRequestHeader is called after send", async () => {
     const { app } = createAppStub({
       content: [],
       structuredContent: {
@@ -702,7 +702,7 @@ describe("xhr-wrapper (browser)", () => {
     await loaded;
   });
 
-  it("throws when send is called before open", () => {
+  test("throws when send is called before open", () => {
     const { app } = createAppStub({
       content: [],
       structuredContent: {
@@ -719,7 +719,7 @@ describe("xhr-wrapper (browser)", () => {
     expect(() => xhr.send()).toThrow("The object's state must be OPENED");
   });
 
-  it("throws when send is called twice", async () => {
+  test("throws when send is called twice", async () => {
     const { app } = createAppStub({
       content: [],
       structuredContent: {
@@ -746,7 +746,7 @@ describe("xhr-wrapper (browser)", () => {
     await loaded;
   });
 
-  it("uses custom toolName option", async () => {
+  test("uses custom toolName option", async () => {
     const toolResult: CallToolResult = {
       content: [],
       structuredContent: {
@@ -781,7 +781,7 @@ describe("xhr-wrapper (browser)", () => {
     expect(call.name).toBe("custom_request");
   });
 
-  it("respects custom shouldIntercept", () => {
+  test("respects custom shouldIntercept", () => {
     globalThis.XMLHttpRequest =
       FakeXMLHttpRequest as unknown as typeof XMLHttpRequest;
 
@@ -807,7 +807,7 @@ describe("xhr-wrapper (browser)", () => {
     expect(FakeXMLHttpRequest.lastRequest?.url).toBe("/api/skip");
   });
 
-  it("includes query strings in tool url", async () => {
+  test("includes query strings in tool url", async () => {
     const toolResult: CallToolResult = {
       content: [],
       structuredContent: {
@@ -839,7 +839,7 @@ describe("xhr-wrapper (browser)", () => {
     expect(call.arguments.url).toBe("/api/search?q=test&limit=1");
   });
 
-  it("replaces global XMLHttpRequest when installGlobal is true", () => {
+  test("replaces global XMLHttpRequest when installGlobal is true", () => {
     const originalXhr = globalThis.XMLHttpRequest;
     const toolResult: CallToolResult = {
       content: [],
@@ -862,7 +862,7 @@ describe("xhr-wrapper (browser)", () => {
     }
   });
 
-  it("stop() pauses interception and isActive() returns false", () => {
+  test("stop() pauses interception and isActive() returns false", () => {
     globalThis.XMLHttpRequest =
       FakeXMLHttpRequest as unknown as typeof XMLHttpRequest;
 
@@ -892,7 +892,7 @@ describe("xhr-wrapper (browser)", () => {
     expect(FakeXMLHttpRequest.lastRequest?.url).toBe("/api/test");
   });
 
-  it("start() resumes interception after stop()", async () => {
+  test("start() resumes interception after stop()", async () => {
     const toolResult: CallToolResult = {
       content: [],
       structuredContent: {

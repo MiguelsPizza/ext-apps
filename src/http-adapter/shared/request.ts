@@ -16,6 +16,7 @@ export function getBaseUrl(): string {
 /**
  * Resolves a URL against the current base URL.
  */
+/** @internal */
 export function resolveUrl(url: string | URL): URL {
   if (url instanceof URL) {
     return url;
@@ -46,6 +47,7 @@ export function normalizePath(path: string): string {
 /**
  * Removes undefined values from an object.
  */
+/** @internal */
 export function stripUndefined<T extends Record<string, unknown>>(value: T): T {
   return Object.fromEntries(
     Object.entries(value).filter(([, entry]) => entry !== undefined),

@@ -29,11 +29,13 @@
 ## 3) Goals & Non‑Goals
 
 **Goals**
+
 - Enable normal `fetch()`/XHR usage in MCP Apps without weakening auditability.
 - Keep model‑facing semantics in WebMCP tools.
 - Preserve transport‑agnostic MCP (no new wire protocol).
 
 **Non‑Goals**
+
 - Streaming bodies/progress events (future work).
 - Replacing model‑facing tools with HTTP semantics.
 - Changing MCP transports or client auth models.

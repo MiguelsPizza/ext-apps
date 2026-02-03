@@ -168,8 +168,12 @@ function HonoReactApp() {
           {mode === "direct" && "Direct HTTP"}
         </div>
         <div className={styles.modeDescription}>
-          {mode === "mcp" && proxyEnabled && "fetch() → MCP http_request tool → Hono backend"}
-          {mode === "mcp" && !proxyEnabled && "fetch() → Hono backend (proxy bypassed)"}
+          {mode === "mcp" &&
+            proxyEnabled &&
+            "fetch() → MCP http_request tool → Hono backend"}
+          {mode === "mcp" &&
+            !proxyEnabled &&
+            "fetch() → Hono backend (proxy bypassed)"}
           {mode === "direct" && "fetch() → Hono backend (no MCP)"}
         </div>
         {mode === "mcp" && (

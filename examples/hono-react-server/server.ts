@@ -8,7 +8,10 @@ import {
 } from "@modelcontextprotocol/ext-apps/server";
 import { createHttpRequestToolHandler } from "@modelcontextprotocol/ext-apps/fetch-wrapper";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import type { CallToolResult, ReadResourceResult } from "@modelcontextprotocol/sdk/types.js";
+import type {
+  CallToolResult,
+  ReadResourceResult,
+} from "@modelcontextprotocol/sdk/types.js";
 import fs from "node:fs/promises";
 import path from "node:path";
 import { z } from "zod";
@@ -36,7 +39,8 @@ export function createServer(): McpServer {
     "hono-demo",
     {
       title: "Hono Demo",
-      description: "Interactive demo showing dual-mode HTTP pattern with Hono backend",
+      description:
+        "Interactive demo showing dual-mode HTTP pattern with Hono backend",
       inputSchema: {},
       outputSchema: z.object({
         message: z.string(),
@@ -101,7 +105,9 @@ export function createServer(): McpServer {
       outputSchema: httpRequestOutputSchema,
       _meta: { ui: { visibility: ["app"] } },
     },
-    async (args: z.infer<typeof httpRequestInputSchema>): Promise<CallToolResult> => {
+    async (
+      args: z.infer<typeof httpRequestInputSchema>,
+    ): Promise<CallToolResult> => {
       // Adapt the signature: registerTool passes args, but proxyHandler expects params
       return proxyHandler({ name: "http_request", arguments: args });
     },
