@@ -4,15 +4,15 @@ This document details the specific code changes needed to implement the WebMCP +
 
 ## Overview of Changes
 
-| Component | Action | Notes |
-|-----------|--------|-------|
-| `src/app.ts` | Remove tool registration | Keep App + callServerTool (used by fetch wrapper) |
-| `src/app-bridge.ts` | Remove tool methods | Keep bridge for UI protocol |
-| `src/types.ts` | Remove tool types | Add MCP fetch wrapper option types |
-| `src/generated/schema.ts` | Remove tool schemas | Regenerate |
-| `specification/` | Update spec | Document new approach |
-| `examples/` | Update all examples | Use WebMCP pattern |
-| New: `src/fetch-wrapper/` | Add MCP fetch wrapper | New module |
+| Component                 | Action                   | Notes                                             |
+| ------------------------- | ------------------------ | ------------------------------------------------- |
+| `src/app.ts`              | Remove tool registration | Keep App + callServerTool (used by fetch wrapper) |
+| `src/app-bridge.ts`       | Remove tool methods      | Keep bridge for UI protocol                       |
+| `src/types.ts`            | Remove tool types        | Add MCP fetch wrapper option types                |
+| `src/generated/schema.ts` | Remove tool schemas      | Regenerate                                        |
+| `specification/`          | Update spec              | Document new approach                             |
+| `examples/`               | Update all examples      | Use WebMCP pattern                                |
+| New: `src/fetch-wrapper/` | Add MCP fetch wrapper    | New module                                        |
 
 ## File-by-File Analysis
 
@@ -125,10 +125,10 @@ tools?: { listChanged?: boolean }  // in app capabilities
 
 ```typescript
 // All UI-related types
-McpUiHostContext
-McpUiHostCapabilities
-McpUiAppCapabilities
-McpUiResourceMeta
+McpUiHostContext;
+McpUiHostCapabilities;
+McpUiAppCapabilities;
+McpUiResourceMeta;
 // etc.
 ```
 
@@ -156,18 +156,18 @@ src/fetch-wrapper/
 **`src/fetch-wrapper/index.ts`:**
 
 ```typescript
-export { initMcpFetch } from './client';
-export type { McpFetchOptions } from './types';
+export { initMcpFetch } from "./client";
+export type { McpFetchOptions } from "./types";
 ```
 
 **`src/fetch-wrapper/client.ts`:**
 
 ```typescript
-import type { App } from '../app';
-import type { McpFetchOptions } from './types';
+import type { App } from "../app";
+import type { McpFetchOptions } from "./types";
 
 export function initMcpFetch(app: App, options: McpFetchOptions = {}): void {
-  const interceptPaths = options.interceptPaths ?? ['/'];
+  const interceptPaths = options.interceptPaths ?? ["/"];
   const originalFetch = window.fetch;
 
   window.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
@@ -180,15 +180,15 @@ export function initMcpFetch(app: App, options: McpFetchOptions = {}): void {
     options.onIntercept?.(url, init);
 
     const result = await app.callServerTool({
-      name: 'http_request',
+      name: "http_request",
       arguments: {
-        method: init?.method || 'GET',
+        method: init?.method || "GET",
         url,
         headers: init?.headers
           ? Object.fromEntries(new Headers(init.headers))
           : undefined,
-        body: init?.body ? parseBody(init.body) : undefined
-      }
+        body: init?.body ? parseBody(init.body) : undefined,
+      },
     });
 
     return mcpResultToResponse(result);
@@ -209,7 +209,7 @@ export function initMcpFetch(app: App, options: McpFetchOptions = {}): void {
 
 **New content to ADD:**
 
-```markdown
+````markdown
 ### WebMCP Integration
 
 Apps expose tools to hosts using the Web Model Context API (`navigator.modelContext`).
@@ -218,7 +218,7 @@ This is an emerging web standard with polyfill support.
 #### Tool Registration
 
 ```typescript
-import "@mcp-b/global";  // WebMCP polyfill
+import "@mcp-b/global"; // WebMCP polyfill
 
 navigator.modelContext.registerTool({
   name: "get_cart",
@@ -226,14 +226,15 @@ navigator.modelContext.registerTool({
   inputSchema: {
     type: "object",
     properties: {},
-    required: []
+    required: [],
   },
   handler: async () => ({
-    items: cart.map(item => ({ id: item.id, name: item.name })),
-    total: cart.reduce((sum, item) => sum + item.price, 0)
-  })
+    items: cart.map((item) => ({ id: item.id, name: item.name })),
+    total: cart.reduce((sum, item) => sum + item.price, 0),
+  }),
 });
 ```
+````
 
 #### React Integration
 
@@ -270,14 +271,14 @@ import { App, PostMessageTransport } from "@modelcontextprotocol/ext-apps";
 import { initMcpFetch } from "@modelcontextprotocol/ext-apps/fetch-wrapper";
 
 const app = new App({ name: "MyApp", version: "1.0.0" });
-initMcpFetch(app, { interceptPaths: ['/api/'] });
+initMcpFetch(app, { interceptPaths: ["/api/"] });
 await app.connect(new PostMessageTransport(window.parent));
 
 // Now normal fetch works
-const data = await fetch('/api/cart').then(r => r.json());
+const data = await fetch("/api/cart").then((r) => r.json());
 ```
 
-```
+````
 
 ### 6. Examples Updates
 
@@ -305,7 +306,7 @@ app.registerTool("do_action", {
 });
 
 await app.connect();
-```
+````
 
 **After (proposed):**
 
@@ -382,15 +383,15 @@ Or, create simplified versions of these packages within ext-apps.
 
 ## Summary of Changes
 
-| Category | Files | Lines Removed | Lines Added |
-|----------|-------|---------------|-------------|
-| Core SDK | `app.ts`, `app-bridge.ts`, `types.ts` | ~250 | ~50 |
-| MCP Fetch Wrapper | New `src/fetch-wrapper/` | 0 | ~150 |
-| Types/Schemas | `types.ts`, `schema.ts` | ~100 | ~50 |
-| Specification | `apps.mdx` | ~500 | ~200 |
-| Examples | All example apps | ~500 | ~300 |
-| Tests | Test files | ~500 | ~300 |
-| **Total** | | **~1850** | **~1300** |
+| Category          | Files                                 | Lines Removed | Lines Added |
+| ----------------- | ------------------------------------- | ------------- | ----------- |
+| Core SDK          | `app.ts`, `app-bridge.ts`, `types.ts` | ~250          | ~50         |
+| MCP Fetch Wrapper | New `src/fetch-wrapper/`              | 0             | ~150        |
+| Types/Schemas     | `types.ts`, `schema.ts`               | ~100          | ~50         |
+| Specification     | `apps.mdx`                            | ~500          | ~200        |
+| Examples          | All example apps                      | ~500          | ~300        |
+| Tests             | Test files                            | ~500          | ~300        |
+| **Total**         |                                       | **~1850**     | **~1300**   |
 
 **Net reduction: ~550 lines** (plus cleaner, more portable code)
 

@@ -4,13 +4,13 @@ This guide shows how to migrate existing MCP Apps from the current architecture 
 
 ## Quick Reference
 
-| Current Pattern | New Pattern |
-|-----------------|-------------|
-| `app.registerTool(name, config, handler)` | `navigator.modelContext.registerTool({ name, ...config, handler })` |
-| `app.callServerTool(params)` | `fetch('/api/endpoint')` (proxied) |
-| `useApp({ onAppCreated: (app) => ... })` | `useWebMCP({ ... })` |
-| Pass `app` as props | No props needed (global API) |
-| `{ tools: { listChanged: true } }` capability | Not needed (WebMCP handles) |
+| Current Pattern                               | New Pattern                                                         |
+| --------------------------------------------- | ------------------------------------------------------------------- |
+| `app.registerTool(name, config, handler)`     | `navigator.modelContext.registerTool({ name, ...config, handler })` |
+| `app.callServerTool(params)`                  | `fetch('/api/endpoint')` (proxied)                                  |
+| `useApp({ onAppCreated: (app) => ... })`      | `useWebMCP({ ... })`                                                |
+| Pass `app` as props                           | No props needed (global API)                                        |
+| `{ tools: { listChanged: true } }` capability | Not needed (WebMCP handles)                                         |
 
 ## Step-by-Step Migration
 
@@ -29,19 +29,21 @@ npm install @modelcontextprotocol/ext-apps@latest
 ### Step 2: Initialize WebMCP and MCP Fetch Wrapper
 
 **Before:**
+
 ```typescript
 // main.tsx
-import { App, PostMessageTransport } from '@modelcontextprotocol/ext-apps';
+import { App, PostMessageTransport } from "@modelcontextprotocol/ext-apps";
 
 const app = new App(
   { name: "MyApp", version: "1.0" },
-  { tools: { listChanged: true } }
+  { tools: { listChanged: true } },
 );
 
 await app.connect(new PostMessageTransport(window.parent));
 ```
 
 **After:**
+
 ```typescript
 // main.tsx
 import "@mcp-b/global";
@@ -49,7 +51,7 @@ import { App, PostMessageTransport } from "@modelcontextprotocol/ext-apps";
 import { initMcpFetch } from "@modelcontextprotocol/ext-apps/fetch-wrapper";
 
 const app = new App({ name: "MyApp", version: "1.0" });
-initMcpFetch(app, { interceptPaths: ['/api/'] });
+initMcpFetch(app, { interceptPaths: ["/api/"] });
 await app.connect(new PostMessageTransport(window.parent));
 
 // WebMCP is now globally available via navigator.modelContext
@@ -61,8 +63,12 @@ await app.connect(new PostMessageTransport(window.parent));
 ### Step 3: Migrate Tool Registration (Vanilla JS)
 
 **Before:**
+
 ```typescript
-const app = new App({ name: "Shop", version: "1.0" }, { tools: { listChanged: true } });
+const app = new App(
+  { name: "Shop", version: "1.0" },
+  { tools: { listChanged: true } },
+);
 
 app.registerTool(
   "get_cart",
@@ -70,16 +76,16 @@ app.registerTool(
     description: "Get current cart contents",
     outputSchema: z.object({
       items: z.array(z.object({ id: z.string(), name: z.string() })),
-      total: z.number()
-    })
+      total: z.number(),
+    }),
   },
   async () => ({
     content: [{ type: "text", text: `Cart has ${cart.length} items` }],
     structuredContent: {
-      items: cart.map(i => ({ id: i.id, name: i.name })),
-      total: cart.reduce((sum, i) => sum + i.price, 0)
-    }
-  })
+      items: cart.map((i) => ({ id: i.id, name: i.name })),
+      total: cart.reduce((sum, i) => sum + i.price, 0),
+    },
+  }),
 );
 
 app.registerTool(
@@ -87,22 +93,26 @@ app.registerTool(
   {
     description: "Add item to cart",
     inputSchema: z.object({ itemId: z.string() }),
-    annotations: { readOnlyHint: false }
+    annotations: { readOnlyHint: false },
   },
   async ({ itemId }) => {
-    const item = products.find(p => p.id === itemId);
+    const item = products.find((p) => p.id === itemId);
     if (!item) {
-      return { content: [{ type: "text", text: "Item not found" }], isError: true };
+      return {
+        content: [{ type: "text", text: "Item not found" }],
+        isError: true,
+      };
     }
     cart.push(item);
     return { content: [{ type: "text", text: `Added ${item.name}` }] };
-  }
+  },
 );
 
 await app.connect();
 ```
 
 **After:**
+
 ```typescript
 import "@mcp-b/global";
 
@@ -111,9 +121,9 @@ navigator.modelContext.registerTool({
   description: "Get current cart contents",
   inputSchema: { type: "object", properties: {}, required: [] },
   handler: async () => ({
-    items: cart.map(i => ({ id: i.id, name: i.name })),
-    total: cart.reduce((sum, i) => sum + i.price, 0)
-  })
+    items: cart.map((i) => ({ id: i.id, name: i.name })),
+    total: cart.reduce((sum, i) => sum + i.price, 0),
+  }),
 });
 
 navigator.modelContext.registerTool({
@@ -122,21 +132,22 @@ navigator.modelContext.registerTool({
   inputSchema: {
     type: "object",
     properties: { itemId: { type: "string" } },
-    required: ["itemId"]
+    required: ["itemId"],
   },
   handler: async ({ itemId }) => {
-    const item = products.find(p => p.id === itemId);
+    const item = products.find((p) => p.id === itemId);
     if (!item) throw new Error("Item not found");
 
     cart.push(item);
     return { success: true, message: `Added ${item.name}` };
-  }
+  },
 });
 ```
 
 ### Step 4: Migrate Tool Registration (React)
 
 **Before:**
+
 ```typescript
 function MyApp() {
   const [cart, setCart] = useState<Item[]>([]);
@@ -168,6 +179,7 @@ function ShopUI({ app, cart, setCart }: { app: App, ... }) {
 ```
 
 **After:**
+
 ```typescript
 import { useWebMCP } from "@mcp-b/react-webmcp";
 
@@ -219,12 +231,13 @@ function ShopUI({ cart, setCart }: { cart: Item[], ... }) {
 ### Step 5: Migrate Server Tool Calls to Fetch
 
 **Before:**
+
 ```typescript
 // Every backend call was an MCP tool call
 async function loadUserData() {
   const result = await app.callServerTool({
     name: "get_user_profile",
-    arguments: { userId: currentUserId }
+    arguments: { userId: currentUserId },
   });
   return result.structuredContent;
 }
@@ -232,12 +245,13 @@ async function loadUserData() {
 async function saveSettings(settings: Settings) {
   await app.callServerTool({
     name: "update_settings",
-    arguments: { userId: currentUserId, settings }
+    arguments: { userId: currentUserId, settings },
   });
 }
 ```
 
 **After:**
+
 ```typescript
 // Normal fetch calls, proxied through host
 async function loadUserData() {
@@ -247,9 +261,9 @@ async function loadUserData() {
 
 async function saveSettings(settings: Settings) {
   await fetch(`/api/users/${currentUserId}/settings`, {
-    method: 'PUT',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(settings)
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(settings),
   });
 }
 ```
@@ -257,6 +271,7 @@ async function saveSettings(settings: Settings) {
 ### Step 6: Update Tool Lifecycle Management
 
 **Before:**
+
 ```typescript
 const tool = app.registerTool("my_tool", config, handler);
 
@@ -274,12 +289,13 @@ tool.remove();
 ```
 
 **After:**
+
 ```typescript
 // Registration returns unregister function
 const unregister = navigator.modelContext.registerTool({
   name: "my_tool",
   ...config,
-  handler
+  handler,
 });
 
 // Later: remove (no disable/enable, just unregister and re-register)
@@ -292,25 +308,27 @@ unregister();
 // With React hook, this is automatic based on deps
 useWebMCP({
   name: "my_tool",
-  handler: isEnabled ? handler : null,  // Or conditionally render
-  deps: [isEnabled]
+  handler: isEnabled ? handler : null, // Or conditionally render
+  deps: [isEnabled],
 });
 ```
 
 ### Step 7: Migrate Capability Declarations
 
 **Before:**
+
 ```typescript
 const app = new App(
   { name: "App", version: "1.0" },
   {
-    tools: { listChanged: true },  // For registering tools
-    serverTools: { listChanged: true }  // For calling server tools
-  }
+    tools: { listChanged: true }, // For registering tools
+    serverTools: { listChanged: true }, // For calling server tools
+  },
 );
 ```
 
 **After:**
+
 ```typescript
 // No capability declaration needed for tools
 // WebMCP handles tool notifications automatically
@@ -324,6 +342,7 @@ const app = new App(
 ### Pattern: Conditional Tool Registration
 
 **Before:**
+
 ```typescript
 if (user.isAdmin) {
   app.registerTool("admin_action", { ... }, handler);
@@ -331,13 +350,14 @@ if (user.isAdmin) {
 ```
 
 **After:**
+
 ```typescript
 // Option 1: Conditional hook (React)
 function AdminTools({ user }) {
   useWebMCP({
     name: "admin_action",
     handler: user.isAdmin ? handler : undefined,
-    deps: [user.isAdmin]
+    deps: [user.isAdmin],
   });
 }
 
@@ -345,7 +365,7 @@ function AdminTools({ user }) {
 if (user.isAdmin) {
   navigator.modelContext.registerTool({
     name: "admin_action",
-    handler
+    handler,
   });
 }
 ```
@@ -353,6 +373,7 @@ if (user.isAdmin) {
 ### Pattern: Tool with Cleanup
 
 **Before:**
+
 ```typescript
 const tool = app.registerTool("realtime_data", { ... }, handler);
 
@@ -363,19 +384,20 @@ window.addEventListener('beforeunload', () => {
 ```
 
 **After:**
+
 ```typescript
 const unregister = navigator.modelContext.registerTool({
   name: "realtime_data",
-  handler
+  handler,
 });
 
-window.addEventListener('beforeunload', unregister);
+window.addEventListener("beforeunload", unregister);
 
 // With React, automatic:
 useWebMCP({
   name: "realtime_data",
   handler,
-  deps: []
+  deps: [],
 });
 // Unregisters automatically on unmount
 ```
@@ -383,6 +405,7 @@ useWebMCP({
 ### Pattern: Dynamic Tool List
 
 **Before:**
+
 ```typescript
 // Tools registered in onAppCreated, static
 
@@ -391,16 +414,17 @@ const newTool = app.registerTool("dynamic_tool", { ... }, handler);
 ```
 
 **After:**
+
 ```typescript
 // Tools can be registered anytime
 function DynamicFeature({ features }) {
   // Each feature gets its own tool
-  features.forEach(feature => {
+  features.forEach((feature) => {
     useWebMCP({
       name: `feature_${feature.id}`,
       description: feature.description,
       handler: feature.handler,
-      deps: [feature]
+      deps: [feature],
     });
   });
 }
@@ -409,6 +433,7 @@ function DynamicFeature({ features }) {
 ### Pattern: Tool Calling Other Tools
 
 **Before:**
+
 ```typescript
 app.registerTool("composite_action", { ... }, async () => {
   // Can't easily call other app tools
@@ -418,6 +443,7 @@ app.registerTool("composite_action", { ... }, async () => {
 ```
 
 **After:**
+
 ```typescript
 // Just call the shared function directly
 const sharedLogic = async () => { ... };
@@ -442,6 +468,7 @@ navigator.modelContext.registerTool({
 ## Host-Side Migration
 
 ### Before:
+
 ```typescript
 import { AppBridge } from "@modelcontextprotocol/ext-apps/app-bridge";
 
@@ -458,6 +485,7 @@ const result = await bridge.callTool({
 ```
 
 ### After:
+
 ```typescript
 import { Client } from "@anthropic/sdk/mcp";
 import { IframeParentTransport } from "@mcp-b/transports";

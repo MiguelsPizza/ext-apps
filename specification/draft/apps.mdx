@@ -1922,11 +1922,11 @@ function checkWinner(board: Array<'X' | 'O' | null>): 'X' | 'O' | 'draw' | null 
 
 ```typescript
 // 1. Discover available operations
-const { tools } = await bridge.sendListTools({});
+const { tools } = await bridge.listTools({});
 // → ["get_board_state", "make_move", "reset_game"]
 
 // 2. Query semantic state (not visual/DOM)
-const state = await bridge.sendCallTool({
+const state = await bridge.callTool({
   name: "get_board_state",
   arguments: {}
 });
@@ -1934,14 +1934,14 @@ const state = await bridge.sendCallTool({
 
 // 3. Execute actions based on semantic understanding
 if (state.structuredContent.board[4] === null) {
-  await bridge.sendCallTool({
+  await bridge.callTool({
     name: "make_move",
     arguments: { position: 4 }
   });
 }
 
 // 4. Query updated state
-const newState = await bridge.sendCallTool({
+const newState = await bridge.callTool({
   name: "get_board_state",
   arguments: {}
 });
@@ -1969,7 +1969,7 @@ Host/Agent calls app-registered tools:
 
 ```typescript
 // Host calls app tool
-const result = await bridge.sendCallTool({
+const result = await bridge.callTool({
   name: "tictactoe_move",
   arguments: { position: 4 }
 });

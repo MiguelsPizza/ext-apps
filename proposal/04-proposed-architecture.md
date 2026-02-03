@@ -98,7 +98,7 @@ navigator.modelContext.registerTool({
     // Calls same function as button click
     addToCart(itemId);
     return { success: true };
-  }
+  },
 });
 
 // Host discovers via MCP client
@@ -107,7 +107,10 @@ await client.connect(new IframeParentTransport({ iframe }));
 const { tools } = await client.listTools();
 
 // Host (or model) calls tool
-await client.callTool({ name: "click_add_to_cart", arguments: { itemId: "123" } });
+await client.callTool({
+  name: "click_add_to_cart",
+  arguments: { itemId: "123" },
+});
 ```
 
 ### Channel 2: MCP Fetch Wrapper (App ↔ Server ↔ Backend)
@@ -118,9 +121,9 @@ async function addToCart(itemId: string) {
   cart.push(itemId);
 
   // This fetch is intercepted and converted to MCP tools/call
-  const res = await fetch('/api/cart', {
-    method: 'POST',
-    body: JSON.stringify({ itemId })
+  const res = await fetch("/api/cart", {
+    method: "POST",
+    body: JSON.stringify({ itemId }),
   });
 
   return res.json();
@@ -398,13 +401,13 @@ WebMCP tool calls and MCP Apps UI messages both use JSON‑RPC over `postMessage
 
 ## Benefits Recap
 
-| Aspect | Current (PR #72) | Proposed |
-|--------|------------------|----------|
-| **Tool registration** | `app.registerTool()` | `navigator.modelContext.registerTool()` |
-| **Tool access** | Pass `app` instance | Global API |
-| **Backend calls** | `app.callServerTool()` | Normal `fetch()` (wrapped to MCP) |
-| **Code paths** | Separate for UI/model | Same |
-| **App portability** | MCP-app specific | Works anywhere |
-| **Library support** | Needs `app` param | Just works |
-| **Standards** | Custom | W3C trajectory |
-| **React ergonomics** | Prop drilling | Just use hook |
+| Aspect                | Current (PR #72)       | Proposed                                |
+| --------------------- | ---------------------- | --------------------------------------- |
+| **Tool registration** | `app.registerTool()`   | `navigator.modelContext.registerTool()` |
+| **Tool access**       | Pass `app` instance    | Global API                              |
+| **Backend calls**     | `app.callServerTool()` | Normal `fetch()` (wrapped to MCP)       |
+| **Code paths**        | Separate for UI/model  | Same                                    |
+| **App portability**   | MCP-app specific       | Works anywhere                          |
+| **Library support**   | Needs `app` param      | Just works                              |
+| **Standards**         | Custom                 | W3C trajectory                          |
+| **React ergonomics**  | Prop drilling          | Just use hook                           |

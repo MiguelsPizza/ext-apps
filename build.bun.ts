@@ -51,8 +51,16 @@ await Promise.all([
     outdir: "dist/src/server",
     external: ["@modelcontextprotocol/sdk"],
   }),
-  buildJs("src/fetch-wrapper/index.ts", {
-    outdir: "dist/src/fetch-wrapper",
+  buildJs("src/http-adapter/init.ts", {
+    outdir: "dist/src/http-adapter",
+    external: ["@modelcontextprotocol/sdk"],
+  }),
+  buildJs("src/http-adapter/fetch-wrapper/fetch.ts", {
+    outdir: "dist/src/http-adapter/fetch-wrapper",
+    external: ["@modelcontextprotocol/sdk"],
+  }),
+  buildJs("src/http-adapter/xhr-wrapper/xhr.ts", {
+    outdir: "dist/src/http-adapter/xhr-wrapper",
     external: ["@modelcontextprotocol/sdk"],
   }),
 ]);

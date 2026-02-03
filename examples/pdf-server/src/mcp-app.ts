@@ -850,9 +850,7 @@ app.registerTool(
   async () => {
     if (!pdfDocument) {
       return {
-        content: [
-          { type: "text" as const, text: "Error: No document loaded" },
-        ],
+        content: [{ type: "text" as const, text: "Error: No document loaded" }],
         isError: true,
       };
     }
@@ -883,9 +881,7 @@ app.registerTool(
   async (args) => {
     if (!pdfDocument) {
       return {
-        content: [
-          { type: "text" as const, text: "Error: No document loaded" },
-        ],
+        content: [{ type: "text" as const, text: "Error: No document loaded" }],
         isError: true,
       };
     }
@@ -931,9 +927,7 @@ app.registerTool(
   async (args) => {
     if (!pdfDocument) {
       return {
-        content: [
-          { type: "text" as const, text: "Error: No document loaded" },
-        ],
+        content: [{ type: "text" as const, text: "Error: No document loaded" }],
         isError: true,
       };
     }
@@ -991,9 +985,7 @@ app.registerTool(
   async (args) => {
     if (!pdfDocument) {
       return {
-        content: [
-          { type: "text" as const, text: "Error: No document loaded" },
-        ],
+        content: [{ type: "text" as const, text: "Error: No document loaded" }],
         isError: true,
       };
     }
@@ -1066,9 +1058,7 @@ app.registerTool(
   async (args) => {
     if (!pdfDocument) {
       return {
-        content: [
-          { type: "text" as const, text: "Error: No document loaded" },
-        ],
+        content: [{ type: "text" as const, text: "Error: No document loaded" }],
         isError: true,
       };
     }

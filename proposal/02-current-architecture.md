@@ -15,17 +15,21 @@ View (App iframe) <──PostMessage──> Host (AppBridge) <──MCP──> M
 Apps are built using the `App` class from `@modelcontextprotocol/ext-apps`:
 
 ```typescript
-import { App, PostMessageTransport } from '@modelcontextprotocol/ext-apps';
+import { App, PostMessageTransport } from "@modelcontextprotocol/ext-apps";
 
 const app = new App(
-  { name: "MyApp", version: "1.0.0" },           // appInfo
-  { tools: { listChanged: true } },               // capabilities
-  { autoResize: true }                            // options
+  { name: "MyApp", version: "1.0.0" }, // appInfo
+  { tools: { listChanged: true } }, // capabilities
+  { autoResize: true }, // options
 );
 
 // Register handlers BEFORE connecting
-app.ontoolinput = (params) => { /* handle tool input */ };
-app.ontoolresult = (result) => { /* handle tool result */ };
+app.ontoolinput = (params) => {
+  /* handle tool input */
+};
+app.ontoolresult = (result) => {
+  /* handle tool result */
+};
 
 await app.connect(new PostMessageTransport(window.parent));
 ```
@@ -72,7 +76,7 @@ PR #72 adds the ability for apps to register their own tools:
 ```typescript
 const app = new App(
   { name: "TicTacToe", version: "1.0" },
-  { tools: { listChanged: true } }  // Declare capability
+  { tools: { listChanged: true } }, // Declare capability
 );
 
 const moveTool = app.registerTool(
@@ -80,16 +84,19 @@ const moveTool = app.registerTool(
   {
     description: "Make a move",
     inputSchema: z.object({ position: z.number().min(0).max(8) }),
-    outputSchema: z.object({ board: z.array(z.string()), winner: z.string().nullable() }),
-    annotations: { readOnlyHint: false }
+    outputSchema: z.object({
+      board: z.array(z.string()),
+      winner: z.string().nullable(),
+    }),
+    annotations: { readOnlyHint: false },
   },
   async ({ position }) => {
     board[position] = currentPlayer;
     return {
       content: [{ type: "text", text: `Moved to ${position}` }],
-      structuredContent: { board, winner: checkWinner() }
+      structuredContent: { board, winner: checkWinner() },
     };
-  }
+  },
 );
 
 await app.connect();
@@ -100,10 +107,10 @@ await app.connect();
 ```typescript
 const tool = app.registerTool("my_tool", config, callback);
 
-tool.enable();   // Make available in tools/list
-tool.disable();  // Hide from tools/list
-tool.update({ description: "New description" });  // Update metadata
-tool.remove();   // Delete entirely
+tool.enable(); // Make available in tools/list
+tool.disable(); // Hide from tools/list
+tool.update({ description: "New description" }); // Update metadata
+tool.remove(); // Delete entirely
 
 // All trigger notifications/tools/list_changed
 ```
@@ -117,7 +124,7 @@ const { tools } = await bridge.listTools({});
 // Host calls app tool
 const result = await bridge.callTool({
   name: "make_move",
-  arguments: { position: 4 }
+  arguments: { position: 4 },
 });
 ```
 
@@ -136,11 +143,12 @@ Host → App:           bridge.callTool()      // Host calls app tools
 // App needs to call a server tool
 const result = await app.callServerTool({
   name: "get_weather",
-  arguments: { city: "NYC" }
+  arguments: { city: "NYC" },
 });
 ```
 
 This is necessary because:
+
 - Iframe is sandboxed (different origin)
 - Iframe doesn't have auth cookies
 - Must proxy through host which has MCP client connection
@@ -185,18 +193,22 @@ private ensureToolHandlersInitialized(): void {
 Input and output validation using Zod:
 
 ```typescript
-app.registerTool("search", {
-  inputSchema: z.object({
-    query: z.string().min(1).max(100),
-    limit: z.number().positive().default(10)
-  }),
-  outputSchema: z.object({
-    results: z.array(z.object({ title: z.string(), url: z.string() }))
-  })
-}, async (params) => {
-  // params validated before callback
-  // return value validated after callback
-});
+app.registerTool(
+  "search",
+  {
+    inputSchema: z.object({
+      query: z.string().min(1).max(100),
+      limit: z.number().positive().default(10),
+    }),
+    outputSchema: z.object({
+      results: z.array(z.object({ title: z.string(), url: z.string() })),
+    }),
+  },
+  async (params) => {
+    // params validated before callback
+    // return value validated after callback
+  },
+);
 ```
 
 ## PostMessageTransport
@@ -210,33 +222,38 @@ const transport = new PostMessageTransport(window.parent, window.parent);
 // Host side
 const transport = new PostMessageTransport(
   iframe.contentWindow!,
-  iframe.contentWindow!
+  iframe.contentWindow!,
 );
 ```
 
 ## Problems with Current Architecture
 
 ### 1. Custom Tool Registration
+
 - Duplicates what WebMCP already provides
 - Not aligned with W3C `navigator.modelContext` trajectory
 - Requires passing `app` instance through component tree
 
 ### 2. Every Backend Call is an MCP Tool
+
 - `app.callServerTool()` for all backend communication
 - Forces MCP-shaped APIs for normal REST/GraphQL calls
 - High friction for porting existing apps
 
 ### 3. Separate Code Paths
+
 - UI buttons trigger one flow
 - Model tools trigger another flow
 - Same action, different implementations
 
 ### 4. No Global Access
+
 - Must pass `app` as prop or use closures
 - Libraries can't easily register tools
 - Nested components need plumbing
 
 ### 5. SDK Lock-in
+
 - Tools only work in ext-apps context
 - Same code doesn't work as standalone website
 - No path to browser-native support
@@ -285,14 +302,14 @@ Every UI action has a corresponding tool. The model interacts via tools. The use
 
 ## Summary
 
-| Aspect | Current Architecture |
-|--------|---------------------|
-| **Tool registration** | `app.registerTool()` |
-| **Tool access** | Pass `app` instance |
-| **Backend calls** | `app.callServerTool()` |
-| **Validation** | Zod schemas |
-| **Lifecycle** | enable/disable/update/remove |
-| **Transport** | PostMessageTransport |
-| **Standardization** | ext-apps specific |
+| Aspect                | Current Architecture         |
+| --------------------- | ---------------------------- |
+| **Tool registration** | `app.registerTool()`         |
+| **Tool access**       | Pass `app` instance          |
+| **Backend calls**     | `app.callServerTool()`       |
+| **Validation**        | Zod schemas                  |
+| **Lifecycle**         | enable/disable/update/remove |
+| **Transport**         | PostMessageTransport         |
+| **Standardization**   | ext-apps specific            |
 
 The current architecture works, but requires significant buy-in to MCP's RPC model and doesn't leverage emerging web standards.

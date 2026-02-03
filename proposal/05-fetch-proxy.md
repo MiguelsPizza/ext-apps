@@ -5,6 +5,7 @@ The MCP fetch wrapper lets MCP Apps call normal `fetch()` while keeping every re
 ## The Problem
 
 MCP Apps run in sandboxed iframes:
+
 - Different origin from host
 - No access to host cookies/session
 - Third-party cookies are being deprecated
@@ -20,21 +21,22 @@ Current solution: `app.callServerTool()` — every backend call must be an MCP t
 3. **MCP Server:** Executes `http_request` with OAuth credentials
 4. **Response:** Returned via MCP, reconstructed into `Response`
 
-
 **Benefits:**
+
 - Full auditability (pure MCP JSON-RPC)
 - Auth lives on MCP server (OAuth from connection)
 - No third-party cookie reliance
 - Schema validation on input/output
 - Server controls allowed paths and base URL
 
-**Reality check:** Today, the MCP server already sees *everything* as tools/call. This proposal keeps that model — it just hides the tool layer behind `fetch()` so app code stays normal.
+**Reality check:** Today, the MCP server already sees _everything_ as tools/call. This proposal keeps that model — it just hides the tool layer behind `fetch()` so app code stays normal.
 
 ## Web-Standards-Aligned Tool Contract (Proposed)
 
 This contract intentionally mirrors the **WHATWG Fetch** model (Request/Response). It is a **subset** of the Fetch standard that can be transported over MCP JSON‑RPC.
 
 Key alignment points:
+
 - **Request** fields map to `RequestInit` (`method`, `headers`, `body`, `redirect`, `cache`, etc.)
 - **Response** fields map to `Response` (`status`, `statusText`, `headers`, `body`)
 - **Headers** follow Fetch’s case‑insensitive semantics (host should normalize)
@@ -51,19 +53,23 @@ z.object({
   url: z.string().describe("Relative URL (path + query), e.g. '/api/cart?x=1'"),
   headers: z.record(z.string()).optional(),
   body: z.any().optional(),
-  bodyType: z.enum([
-    "none",
-    "json",
-    "text",
-    "formData",
-    "urlEncoded",
-    "base64"
-  ]).optional(),
+  bodyType: z
+    .enum(["none", "json", "text", "formData", "urlEncoded", "base64"])
+    .optional(),
   redirect: z.enum(["follow", "error", "manual"]).optional(),
-  cache: z.enum(["default", "no-store", "reload", "no-cache", "force-cache", "only-if-cached"]).optional(),
+  cache: z
+    .enum([
+      "default",
+      "no-store",
+      "reload",
+      "no-cache",
+      "force-cache",
+      "only-if-cached",
+    ])
+    .optional(),
   credentials: z.enum(["omit", "same-origin", "include"]).optional(),
-  timeoutMs: z.number().optional()
-})
+  timeoutMs: z.number().optional(),
+});
 ```
 
 ### Output Schema
@@ -74,14 +80,22 @@ z.object({
   statusText: z.string().optional(),
   headers: z.record(z.string()),
   body: z.any(),
-  bodyType: z.enum(["json", "text", "base64", "formData", "urlEncoded", "none"]),
+  bodyType: z.enum([
+    "json",
+    "text",
+    "base64",
+    "formData",
+    "urlEncoded",
+    "none",
+  ]),
   url: z.string().optional(),
   redirected: z.boolean().optional(),
-  ok: z.boolean().optional()
-})
+  ok: z.boolean().optional(),
+});
 ```
 
 **Notes:**
+
 - `url` MUST be relative by default; hosts MAY allow absolute URLs via allowlists.
 - For `GET`/`HEAD`, servers SHOULD ignore `body`.
 - `formData` should be encoded as an array of `{ name, value, filename?, contentType? }` or converted to `urlEncoded` when possible.
@@ -89,41 +103,48 @@ z.object({
 ## MCP Server: `http_request` Tool
 
 ```typescript
-server.registerTool("http_request", {
-  description: "Proxy HTTP requests from the app to backend APIs",
-  inputSchema: HttpRequestInputSchema,
-  outputSchema: HttpRequestOutputSchema,
-  _meta: { ui: { visibility: ["app"] } } // app-only
-}, async ({ method, url, headers, body, bodyType, redirect, cache }, context) => {
-  const baseUrl = process.env.API_BASE_URL!;
-  const authHeaders = await getAuthHeaders(context);
+server.registerTool(
+  "http_request",
+  {
+    description: "Proxy HTTP requests from the app to backend APIs",
+    inputSchema: HttpRequestInputSchema,
+    outputSchema: HttpRequestOutputSchema,
+    _meta: { ui: { visibility: ["app"] } }, // app-only
+  },
+  async (
+    { method, url, headers, body, bodyType, redirect, cache },
+    context,
+  ) => {
+    const baseUrl = process.env.API_BASE_URL!;
+    const authHeaders = await getAuthHeaders(context);
 
-  if (!isAllowedPath(url)) {
-    throw new Error(`Path not allowed: ${url}`);
-  }
+    if (!isAllowedPath(url)) {
+      throw new Error(`Path not allowed: ${url}`);
+    }
 
-  const response = await fetch(`${baseUrl}${url}`, {
-    method,
-    headers: {
-      "Content-Type": "application/json",
-      ...headers,
-      ...authHeaders,
-    },
-    body: body ? encodeBody(body, bodyType) : undefined,
-    redirect,
-    cache,
-  });
+    const response = await fetch(`${baseUrl}${url}`, {
+      method,
+      headers: {
+        "Content-Type": "application/json",
+        ...headers,
+        ...authHeaders,
+      },
+      body: body ? encodeBody(body, bodyType) : undefined,
+      redirect,
+      cache,
+    });
 
-  return {
-    structuredContent: {
-      status: response.status,
-      statusText: response.statusText,
-      headers: Object.fromEntries(response.headers),
-      body: await decodeBody(response, "text"),
-      bodyType: "text",
-    },
-  };
-});
+    return {
+      structuredContent: {
+        status: response.status,
+        statusText: response.statusText,
+        headers: Object.fromEntries(response.headers),
+        body: await decodeBody(response, "text"),
+        bodyType: "text",
+      },
+    };
+  },
+);
 ```
 
 ## Iframe: Fetch Wrapper

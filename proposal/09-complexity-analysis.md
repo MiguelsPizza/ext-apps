@@ -34,6 +34,7 @@ It **doesn't replace the spec** — it adds:
 It keeps everything in `tools/call`, which is consistent with MCP's audit model.
 
 It does introduce new obligations:
+
 - Standard `http_request` contract
 - Transport multiplexing for two JSON-RPC streams
 - Optional notification extensions for WS/SSE/streaming
@@ -41,6 +42,7 @@ It does introduce new obligations:
 ## Tracing a Single Action: Current Model
 
 **Scenario:** Model wants to add an item to a shopping cart. This requires:
+
 1. Updating local UI state
 2. Making an HTTP call to the backend API
 
@@ -136,16 +138,16 @@ It does introduce new obligations:
 
 ### Count the Hops
 
-| Hop | Direction | Transport |
-|-----|-----------|-----------|
-| 1 | Model → Host | Internal |
-| 2 | Host → App | postMessage |
-| 3 | App → Host | postMessage |
-| 4 | Host → Server | MCP/HTTP |
-| 5 | Server → Host | MCP/HTTP |
-| 6 | Host → App | postMessage |
-| 7 | App → Host | postMessage |
-| 8 | Host → Model | Internal |
+| Hop | Direction     | Transport   |
+| --- | ------------- | ----------- |
+| 1   | Model → Host  | Internal    |
+| 2   | Host → App    | postMessage |
+| 3   | App → Host    | postMessage |
+| 4   | Host → Server | MCP/HTTP    |
+| 5   | Server → Host | MCP/HTTP    |
+| 6   | Host → App    | postMessage |
+| 7   | App → Host    | postMessage |
+| 8   | Host → Model  | Internal    |
 
 **Total: 8 hops, 4 postMessage round trips**
 
@@ -153,22 +155,30 @@ It does introduce new obligations:
 
 ```typescript
 // SERVER: Must define a tool for each backend operation
-server.registerTool("cart_add", {
-  inputSchema: z.object({ itemId: z.string() })
-}, async ({ itemId }) => {
-  await db.cart.add(itemId);
-  return { content: [{ type: "text", text: "Added" }] };
-});
+server.registerTool(
+  "cart_add",
+  {
+    inputSchema: z.object({ itemId: z.string() }),
+  },
+  async ({ itemId }) => {
+    await db.cart.add(itemId);
+    return { content: [{ type: "text", text: "Added" }] };
+  },
+);
 
 // APP: Needs to call the server tool somehow
 // Option A: App tool that wraps server tool
-app.registerTool("add_to_cart", {
-  inputSchema: z.object({ itemId: z.string() })
-}, async ({ itemId }) => {
-  cart.push(itemId);  // Update local state
-  const result = await app.callServerTool("cart_add", { itemId });  // Backend call
-  return result;
-});
+app.registerTool(
+  "add_to_cart",
+  {
+    inputSchema: z.object({ itemId: z.string() }),
+  },
+  async ({ itemId }) => {
+    cart.push(itemId); // Update local state
+    const result = await app.callServerTool("cart_add", { itemId }); // Backend call
+    return result;
+  },
+);
 
 // Option B: Call server tool directly from event handler
 async function handleAddToCart(itemId) {
@@ -281,16 +291,16 @@ async function handleAddToCart(itemId) {
 
 ### Count the Hops
 
-| Hop | Direction | Transport |
-|-----|-----------|-----------|
-| 1 | Model → Host | Internal |
-| 2 | Host → App | postMessage (tool call) |
-| 3 | App → Host | postMessage (http_request tools/call) |
-| 4 | Host → Backend | HTTP |
-| 5 | Backend → Host | HTTP |
-| 6 | Host → App | postMessage (fetch response) |
-| 7 | App → Host | postMessage (tool result) |
-| 8 | Host → Model | Internal |
+| Hop | Direction      | Transport                             |
+| --- | -------------- | ------------------------------------- |
+| 1   | Model → Host   | Internal                              |
+| 2   | Host → App     | postMessage (tool call)               |
+| 3   | App → Host     | postMessage (http_request tools/call) |
+| 4   | Host → Backend | HTTP                                  |
+| 5   | Backend → Host | HTTP                                  |
+| 6   | Host → App     | postMessage (fetch response)          |
+| 7   | App → Host     | postMessage (tool result)             |
+| 8   | Host → Model   | Internal                              |
 
 **Total: 8 hops**
 
@@ -299,17 +309,20 @@ async function handleAddToCart(itemId) {
 The hop count is similar in both models — that's not the issue. **The issue is what developers must define and understand.**
 
 **Current model requires:**
+
 1. Server tool definitions for each backend endpoint
 2. `app.callServerTool()` calls in app code
 3. Understanding when to use server tools vs app tools
 
 **Proposed model requires:**
+
 1. Normal `fetch()` calls (wrapper handles conversion)
 2. One generic `http_request` server tool (infrastructure, not per-endpoint)
 
 ### The Real Savings: No Per-Endpoint Server Tools
 
 **Current model:**
+
 ```
 Developer: "I need to call /api/cart"
 Steps:
@@ -319,6 +332,7 @@ Steps:
 ```
 
 **Proposed model:**
+
 ```
 Developer: "I need to call /api/cart"
 Steps:
@@ -353,7 +367,7 @@ async function addToCart(itemId) {
 }
 
 async function removeFromCart(itemId) {
-  cart = cart.filter(i => i !== itemId);
+  cart = cart.filter((i) => i !== itemId);
   await app.callServerTool("cart_remove", { itemId });
 }
 
@@ -419,6 +433,7 @@ navigator.modelContext.registerTool({
 ```
 
 **Key differences:**
+
 - **No server tool per endpoint** — One generic `http_request` tool handles all HTTP communication
 - **Normal REST backend** — Backend doesn't need MCP-specific tool definitions
 - **Standard fetch()** — Developers write normal code, wrapper handles MCP conversion
@@ -454,15 +469,15 @@ Developer thinks:
 
 ## Summary
 
-| Aspect | Current Model | Proposed Model |
-|--------|---------------|----------------|
-| **Tool registration** | `app.registerTool()` | WebMCP (`navigator.modelContext`) |
-| **Backend calls** | Define server tool per endpoint | Generic `http_request` + fetch wrapper |
-| **Server tool definitions** | One per backend operation | One generic tool |
-| **Code paths** | Can differ for UI/model | Same by design |
-| **Cognitive load** | Server tools + app tools | WebMCP tools + fetch |
-| **Portability** | MCP-app specific | Works anywhere (via WebMCP polyfill) |
-| **UI control tools** | `app.registerTool()` | WebMCP (equivalent) |
+| Aspect                      | Current Model                   | Proposed Model                         |
+| --------------------------- | ------------------------------- | -------------------------------------- |
+| **Tool registration**       | `app.registerTool()`            | WebMCP (`navigator.modelContext`)      |
+| **Backend calls**           | Define server tool per endpoint | Generic `http_request` + fetch wrapper |
+| **Server tool definitions** | One per backend operation       | One generic tool                       |
+| **Code paths**              | Can differ for UI/model         | Same by design                         |
+| **Cognitive load**          | Server tools + app tools        | WebMCP tools + fetch                   |
+| **Portability**             | MCP-app specific                | Works anywhere (via WebMCP polyfill)   |
+| **UI control tools**        | `app.registerTool()`            | WebMCP (equivalent)                    |
 
 ## The Bottom Line
 

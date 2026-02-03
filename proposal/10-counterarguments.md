@@ -9,11 +9,13 @@ This document presents the legitimate reasons behind the current MCP Apps archit
 **Their concern:** Raw HTTP proxying isn't auditable. The host sees URLs and payloads but not semantic meaning.
 
 **Valid point.** With raw fetch proxy:
+
 ```
 { type: 'fetch-proxy', url: '/api/xyz', body: '...' }
 ```
 
 The host can't easily:
+
 - Show meaningful approval dialogs
 - Log semantic actions
 - Enforce policies by action type
@@ -23,6 +25,7 @@ The host can't easily:
 **Their concern:** Server tools are trusted (from vetted MCP server). App tools are less trusted. The explicit layering lets hosts reason about trust.
 
 **Valid point.** The spec explicitly separates:
+
 - Server tools (trusted, pre-vetted)
 - App tools (sandboxed, less trusted)
 
@@ -31,6 +34,7 @@ The host can't easily:
 **Their concern:** Iframes can't reliably access cookies due to browser restrictions.
 
 **Valid point.** From browser vendors:
+
 - Chrome restricts third-party cookies
 - Safari/Firefox block them entirely
 - Partitioned cookies (CHIPS) add complexity
@@ -41,6 +45,7 @@ The host can't easily:
 **Their concern:** Arbitrary fetch allows data exfiltration to any endpoint.
 
 **Valid point.** A malicious app with fetch proxy could:
+
 - POST sensitive data to attacker-controlled servers
 - Access internal network resources
 - Abuse host credentials
@@ -50,6 +55,7 @@ The host can't easily:
 **Their concern:** MCP tools have schemas. Arbitrary fetch doesn't.
 
 **Valid point.** Tools provide:
+
 - Input validation before execution
 - Output validation after execution
 - Type safety for the model
@@ -59,6 +65,7 @@ The host can't easily:
 **Their concern:** Apps should only communicate with declared endpoints.
 
 **Valid point.** The spec requires:
+
 - Pre-declared CSP `connectDomains`
 - Host enforcement of allowed origins
 
@@ -73,41 +80,46 @@ Instead of raw HTTP proxying, we propose keeping everything in MCP but making it
 MCP servers register an app-only tool for HTTP proxying:
 
 ```typescript
-server.registerTool("http_request", {
-  description: "Proxy HTTP requests from the app to backend APIs",
-  inputSchema: z.object({
-    method: z.enum(["GET", "POST", "PUT", "DELETE", "PATCH"]),
-    url: z.string().describe("Relative URL (path + query) to backend API"),
-    headers: z.record(z.string()).optional(),
-    body: z.any().optional()
-  }),
-  _meta: {
-    ui: {
-      visibility: ["app"]  // ONLY app can call, NOT the model
-    }
-  }
-}, async ({ method, url, headers, body }, context) => {
-  // Server has the auth context from OAuth connection
-  const baseUrl = config.apiBaseUrl;
-  const authHeaders = await getAuthFromContext(context);
+server.registerTool(
+  "http_request",
+  {
+    description: "Proxy HTTP requests from the app to backend APIs",
+    inputSchema: z.object({
+      method: z.enum(["GET", "POST", "PUT", "DELETE", "PATCH"]),
+      url: z.string().describe("Relative URL (path + query) to backend API"),
+      headers: z.record(z.string()).optional(),
+      body: z.any().optional(),
+    }),
+    _meta: {
+      ui: {
+        visibility: ["app"], // ONLY app can call, NOT the model
+      },
+    },
+  },
+  async ({ method, url, headers, body }, context) => {
+    // Server has the auth context from OAuth connection
+    const baseUrl = config.apiBaseUrl;
+    const authHeaders = await getAuthFromContext(context);
 
-  const response = await fetch(`${baseUrl}${url}`, {
-    method,
-    headers: { ...headers, ...authHeaders },
-    body: body ? JSON.stringify(body) : undefined
-  });
+    const response = await fetch(`${baseUrl}${url}`, {
+      method,
+      headers: { ...headers, ...authHeaders },
+      body: body ? JSON.stringify(body) : undefined,
+    });
 
-  return {
-    structuredContent: {
-      status: response.status,
-      headers: Object.fromEntries(response.headers),
-      body: await response.text()
-    }
-  };
-});
+    return {
+      structuredContent: {
+        status: response.status,
+        headers: Object.fromEntries(response.headers),
+        body: await response.text(),
+      },
+    };
+  },
+);
 ```
 
 **Key points:**
+
 - `visibility: ["app"]` — Model never sees this tool
 - Server has OAuth credentials from connection
 - Server knows the backend base URL
@@ -126,19 +138,21 @@ export function initMcpFetch(app: App) {
   }
 
   window.fetch = async (input, init) => {
-    const url = typeof input === 'string' ? input : input.url;
+    const url = typeof input === "string" ? input : input.url;
 
     // Only intercept relative URLs
-    if (!url.startsWith('/')) {
+    if (!url.startsWith("/")) {
       return originalFetch(input, init);
     }
 
     // Convert to MCP tool call
-    const result = await app.callServerTool('http_request', {
-      method: init?.method || 'GET',
+    const result = await app.callServerTool("http_request", {
+      method: init?.method || "GET",
       url,
-      headers: init?.headers ? Object.fromEntries(new Headers(init.headers)) : {},
-      body: init?.body
+      headers: init?.headers
+        ? Object.fromEntries(new Headers(init.headers))
+        : {},
+      body: init?.body,
     });
 
     // Convert back to Response
@@ -151,15 +165,17 @@ export function initMcpFetch(app: App) {
 ### Developer Experience
 
 **Local development (normal browser):**
+
 ```typescript
 // Just works - normal fetch to your dev server
-await fetch('/api/cart', { method: 'POST', body: '...' });
+await fetch("/api/cart", { method: "POST", body: "..." });
 ```
 
 **In MCP app context:**
+
 ```typescript
 // Same code - fetch wrapper converts to callServerTool
-await fetch('/api/cart', { method: 'POST', body: '...' });
+await fetch("/api/cart", { method: "POST", body: "..." });
 // Under the hood: app.callServerTool('http_request', { method: 'POST', url: '/api/cart', ... })
 ```
 
@@ -172,6 +188,7 @@ await fetch('/api/cart', { method: 'POST', body: '...' });
 ### 1. Auditability ✓
 
 Everything is MCP JSON-RPC:
+
 ```json
 {
   "method": "tools/call",
@@ -187,6 +204,7 @@ Everything is MCP JSON-RPC:
 ```
 
 The host can:
+
 - Log all backend communication
 - Show meaningful audit trails
 - Enforce rate limits per-path prefix
@@ -215,6 +233,7 @@ The host can:
 ### 5. Schema Validation ✓
 
 The `http_request` tool has:
+
 - Input schema (method, url, headers, body)
 - Output schema (status, headers, body)
 - Full MCP validation
@@ -284,11 +303,11 @@ MCP server makes authenticated HTTP request
 
 ## The Complete Picture
 
-| Layer | Responsibility | Implementation |
-|-------|----------------|----------------|
-| **WebMCP Tools** | What model can do (UI actions) | `navigator.modelContext.registerTool()` |
-| **App Logic** | Business logic, state | Normal JS/TS functions |
-| **fetch()** | Backend communication | Wrapper → `callServerTool('http_request')` |
-| **MCP Server** | Auth, actual HTTP calls | `http_request` tool with `visibility: ["app"]` |
+| Layer            | Responsibility                 | Implementation                                 |
+| ---------------- | ------------------------------ | ---------------------------------------------- |
+| **WebMCP Tools** | What model can do (UI actions) | `navigator.modelContext.registerTool()`        |
+| **App Logic**    | Business logic, state          | Normal JS/TS functions                         |
+| **fetch()**      | Backend communication          | Wrapper → `callServerTool('http_request')`     |
+| **MCP Server**   | Auth, actual HTTP calls        | `http_request` tool with `visibility: ["app"]` |
 
 **The model interacts with WebMCP tools. The app makes fetch calls. Everything flows through auditable MCP. Auth lives on the server.**

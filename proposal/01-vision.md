@@ -58,6 +58,7 @@ This creates several problems:
 ## Key Insight: Tools Wrap UI, Not API
 
 **Current model:** Tools ARE the API
+
 ```typescript
 // Tool directly calls backend
 app.registerTool("add_to_cart", {}, async ({ itemId }) => {
@@ -66,6 +67,7 @@ app.registerTool("add_to_cart", {}, async ({ itemId }) => {
 ```
 
 **Proposed model:** Tools wrap UI interactions
+
 ```typescript
 // App has normal logic
 function addToCart(itemId: string) {
@@ -90,6 +92,7 @@ navigator.modelContext.registerTool({
 ### 1. Zero-Friction Porting
 
 Existing web apps become MCP apps by adding:
+
 - An MCP fetch wrapper (SDK-provided)
 - WebMCP tool wrappers for key interactions
 
@@ -99,11 +102,11 @@ No rewrite. No new backend. No MCP server changes.
 
 Same app works in multiple contexts:
 
-| Context | UI | WebMCP Tools | Fetch |
-|---------|-----|--------------|-------|
-| **Standalone website** | User clicks | Browser extension uses | Direct to backend |
-| **MCP App (iframe)** | User clicks | Host uses | Proxied through host |
-| **PWA** | User clicks | Native AI uses | Direct to backend |
+| Context                | UI          | WebMCP Tools           | Fetch                |
+| ---------------------- | ----------- | ---------------------- | -------------------- |
+| **Standalone website** | User clicks | Browser extension uses | Direct to backend    |
+| **MCP App (iframe)**   | User clicks | Host uses              | Proxied through host |
+| **PWA**                | User clicks | Native AI uses         | Direct to backend    |
 
 ### 3. Library Ecosystem
 
@@ -134,17 +137,18 @@ if ('modelContext' in navigator) {
 ### 5. Native Browser Support Path
 
 `navigator.modelContext` is being implemented in Chromium. When it ships:
+
 - WebMCP polyfill becomes a no-op
 - Apps continue working unchanged
 - No migration needed
 
 ## The Three Layers
 
-| Layer | Responsibility | Implementation |
-|-------|----------------|----------------|
-| **WebMCP Tools** | Expose UI interactions to model | `navigator.modelContext.registerTool()` |
-| **Application Logic** | Business logic, state management | Normal JS/TS code |
-| **MCP Fetch Wrapper** | MCP tool-based auth | Fetch wrapper |
+| Layer                 | Responsibility                   | Implementation                          |
+| --------------------- | -------------------------------- | --------------------------------------- |
+| **WebMCP Tools**      | Expose UI interactions to model  | `navigator.modelContext.registerTool()` |
+| **Application Logic** | Business logic, state management | Normal JS/TS code                       |
+| **MCP Fetch Wrapper** | MCP tool-based auth              | Fetch wrapper                           |
 
 ## What ext-apps Should Provide
 
@@ -165,13 +169,13 @@ These are already solved by WebMCP with a path to browser standardization.
 
 ## Summary
 
-| | Current Model | Proposed Model |
-|---|---------------|----------------|
-| **Tool registration** | `app.registerTool()` | `navigator.modelContext.registerTool()` |
-| **Backend calls** | `app.callServerTool()` | Normal `fetch()` (proxied) |
-| **Code paths** | Separate for UI vs model | Same for both |
-| **App portability** | MCP-app-specific | Works anywhere |
-| **Standards** | ext-apps SDK | W3C trajectory |
-| **Library support** | Requires SDK | Just works |
+|                       | Current Model            | Proposed Model                          |
+| --------------------- | ------------------------ | --------------------------------------- |
+| **Tool registration** | `app.registerTool()`     | `navigator.modelContext.registerTool()` |
+| **Backend calls**     | `app.callServerTool()`   | Normal `fetch()` (proxied)              |
+| **Code paths**        | Separate for UI vs model | Same for both                           |
+| **App portability**   | MCP-app-specific         | Works anywhere                          |
+| **Standards**         | ext-apps SDK             | W3C trajectory                          |
+| **Library support**   | Requires SDK             | Just works                              |
 
 **MCP Apps become normal web apps with superpowers, not a special category of application.**

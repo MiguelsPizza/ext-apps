@@ -11,12 +11,14 @@ This PoC validates the refined architecture: WebMCP for UI tools, and an MCP `ht
 ## Scope
 
 ### In Scope
+
 - Minimal host using MCP client + `IframeParentTransport`
 - Minimal app using WebMCP polyfill
 - MCP fetch wrapper using `app.callServerTool("http_request")`
 - MCP server exposing `http_request` (visibility `["app"]`)
 
 ### Out of Scope
+
 - Production-grade streaming/WS/SSE
 - Full ext-apps integration
 - Migration of all examples
@@ -28,30 +30,35 @@ This PoC validates the refined architecture: WebMCP for UI tools, and an MCP `ht
 **Duration:** 1–2 hours
 
 Create a minimal MCP server with:
+
 - A standard `http_request` tool
 - A mock backend (Express) or direct proxy to a real API
 
 ```typescript
-server.registerTool("http_request", {
-  inputSchema: HttpRequestInputSchema,
-  outputSchema: HttpRequestOutputSchema,
-  _meta: { ui: { visibility: ["app"] } },
-}, async ({ method, url, headers, body }, context) => {
-  const baseUrl = "http://localhost:3000";
-  const response = await fetch(`${baseUrl}${url}`, {
-    method,
-    headers,
-    body: body ? JSON.stringify(body) : undefined,
-  });
-  return {
-    structuredContent: {
-      status: response.status,
-      headers: Object.fromEntries(response.headers),
-      body: await response.text(),
-      bodyType: "text",
-    },
-  };
-});
+server.registerTool(
+  "http_request",
+  {
+    inputSchema: HttpRequestInputSchema,
+    outputSchema: HttpRequestOutputSchema,
+    _meta: { ui: { visibility: ["app"] } },
+  },
+  async ({ method, url, headers, body }, context) => {
+    const baseUrl = "http://localhost:3000";
+    const response = await fetch(`${baseUrl}${url}`, {
+      method,
+      headers,
+      body: body ? JSON.stringify(body) : undefined,
+    });
+    return {
+      structuredContent: {
+        status: response.status,
+        headers: Object.fromEntries(response.headers),
+        body: await response.text(),
+        bodyType: "text",
+      },
+    };
+  },
+);
 ```
 
 ### Phase 2: Minimal App with WebMCP + Fetch Wrapper

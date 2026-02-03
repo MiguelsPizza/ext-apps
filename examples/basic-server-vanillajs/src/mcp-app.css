@@ -2,9 +2,12 @@
   --color-primary: #2563eb;
   --color-primary-hover: #1d4ed8;
   --color-notice-bg: #eff6ff;
+  --color-panel-bg: #f8fafc;
+  --color-border: #e2e8f0;
+  --color-muted: #64748b;
 
   width: 100%;
-  max-width: 425px;
+  max-width: 720px;
   box-sizing: border-box;
 
   > * {
@@ -17,18 +20,46 @@
   }
 }
 
-.action {
+.hero {
+  h1 {
+    margin: 0 0 0.25rem;
+    font-size: 1.5rem;
+  }
+
+  p {
+    margin: 0;
+    color: var(--color-muted);
+  }
+}
+
+.panel {
+  padding: 1rem;
+  border-radius: 10px;
+  border: 1px solid var(--color-border);
+  background-color: var(--color-panel-bg);
+  display: grid;
+  gap: 0.75rem;
+
+  h2 {
+    margin: 0;
+    font-size: 1rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+}
+
+.row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: center;
+
   > * {
-    margin-top: 0;
-    margin-bottom: 0;
-    width: 100%;
+    margin: 0;
+    flex: 1 1 200px;
+    min-width: 0;
   }
 
-  > * + * {
-    margin-top: 0.5rem;
-  }
-
-  /* Server time row: flex layout for consistent mask width in E2E tests */
   > p {
     display: flex;
     align-items: baseline;
@@ -50,12 +81,30 @@
     font-weight: bold;
     background-color: var(--color-primary);
     cursor: pointer;
+    flex: 0 0 auto;
 
     &:hover,
     &:focus-visible {
       background-color: var(--color-primary-hover);
     }
   }
+}
+
+.meta {
+  margin: 0;
+  color: var(--color-muted);
+  font-size: 0.9rem;
+}
+
+.code-block {
+  margin: 0;
+  padding: 0.75rem;
+  border-radius: 8px;
+  border: 1px dashed var(--color-border);
+  background: white;
+  white-space: pre-wrap;
+  word-break: break-word;
+  min-height: 4rem;
 }
 
 .notice {

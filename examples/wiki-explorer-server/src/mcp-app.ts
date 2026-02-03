@@ -584,9 +584,7 @@ app.registerTool(
     description:
       "Expand a node to fetch and display all Wikipedia pages it links to. This is the core way to explore the graph.",
     inputSchema: z.object({
-      identifier: z
-        .string()
-        .describe("The title or URL of the node to expand"),
+      identifier: z.string().describe("The title or URL of the node to expand"),
     }),
   },
   async (args) => {

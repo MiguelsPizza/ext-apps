@@ -16,14 +16,14 @@ const unregister = navigator.modelContext.registerTool({
   inputSchema: {
     type: "object",
     properties: {
-      itemId: { type: "string" }
+      itemId: { type: "string" },
     },
-    required: ["itemId"]
+    required: ["itemId"],
   },
   handler: async ({ itemId }) => {
     cart.push(itemId);
     return { success: true, cartSize: cart.length };
-  }
+  },
 });
 
 // Later: unregister
@@ -70,6 +70,7 @@ MCPBridge (broker)
 The polyfill maintains two tool registries:
 
 **Bucket A: Base Tools** (`provideContext()`)
+
 ```typescript
 navigator.modelContext.provideContext({
   tools: [
@@ -81,6 +82,7 @@ navigator.modelContext.provideContext({
 ```
 
 **Bucket B: Dynamic Tools** (`registerTool()`)
+
 ```typescript
 const unregister = navigator.modelContext.registerTool({
   name: "component_tool",
@@ -146,7 +148,7 @@ import { Client } from "@anthropic/sdk/mcp";
 const client = new Client({ name: "host", version: "1.0.0" });
 const transport = new IframeParentTransport({
   iframe: document.getElementById("app-iframe"),
-  targetOrigin: "https://app.example.com"
+  targetOrigin: "https://app.example.com",
 });
 
 await client.connect(transport);
@@ -161,9 +163,9 @@ import { IframeChildTransport } from "@mcp-b/transports";
 initializeWebModelContext({
   transport: {
     iframeServer: {
-      allowedOrigins: ["https://host.example.com"]
-    }
-  }
+      allowedOrigins: ["https://host.example.com"],
+    },
+  },
 });
 ```
 
@@ -186,8 +188,8 @@ import { TabServerTransport } from "@mcp-b/transports";
 // Polyfill sets this up automatically
 initializeWebModelContext({
   transport: {
-    tabServer: { allowedOrigins: ["*"] }
-  }
+    tabServer: { allowedOrigins: ["*"] },
+  },
 });
 ```
 
@@ -197,7 +199,7 @@ Chromium is implementing `navigator.modelContext` natively:
 
 ```typescript
 // Detection
-if ('modelContext' in navigator) {
+if ("modelContext" in navigator) {
   // Check if native or polyfill
   const isPolyfill = (navigator.modelContext as any).__isWebMCPPolyfill;
 }
@@ -206,6 +208,7 @@ if ('modelContext' in navigator) {
 ### Native Adapter
 
 The polyfill includes a `NativeModelContextAdapter` that:
+
 1. Detects native `navigator.modelContext`
 2. Wraps it to provide consistent API
 3. Syncs native tools to MCP bridge
@@ -246,27 +249,27 @@ navigator.modelContextTesting.reset();
 
 ## Comparison: WebMCP vs ext-apps registerTool
 
-| Aspect | WebMCP | ext-apps |
-|--------|--------|----------|
-| **API** | `navigator.modelContext.registerTool()` | `app.registerTool()` |
-| **Access** | Global | Instance-based |
-| **React** | `useWebMCP()` hook | Pass `app` as prop |
-| **Lifecycle** | Returns unregister function | `tool.remove()` |
-| **Enable/disable** | Re-register or not | `tool.enable()`/`disable()` |
-| **Notification batching** | Built-in (microtask) | Manual |
-| **Testing** | `navigator.modelContextTesting` | None built-in |
-| **Native support** | Chromium implementing | No |
-| **Standalone use** | Works on any website | MCP apps only |
+| Aspect                    | WebMCP                                  | ext-apps                    |
+| ------------------------- | --------------------------------------- | --------------------------- |
+| **API**                   | `navigator.modelContext.registerTool()` | `app.registerTool()`        |
+| **Access**                | Global                                  | Instance-based              |
+| **React**                 | `useWebMCP()` hook                      | Pass `app` as prop          |
+| **Lifecycle**             | Returns unregister function             | `tool.remove()`             |
+| **Enable/disable**        | Re-register or not                      | `tool.enable()`/`disable()` |
+| **Notification batching** | Built-in (microtask)                    | Manual                      |
+| **Testing**               | `navigator.modelContextTesting`         | None built-in               |
+| **Native support**        | Chromium implementing                   | No                          |
+| **Standalone use**        | Works on any website                    | MCP apps only               |
 
 ## Packages Summary
 
-| Package | Purpose |
-|---------|---------|
-| `@mcp-b/global` | Core polyfill, installs `navigator.modelContext` |
-| `@mcp-b/react-webmcp` | React hooks (`useWebMCP`) |
-| `@mcp-b/transports` | Transport implementations (Iframe, Tab, Extension) |
-| `@mcp-b/webmcp-ts-sdk` | Browser-adapted MCP SDK |
-| `@mcp-b/extension-tools` | Pre-built Chrome Extension tools |
+| Package                  | Purpose                                            |
+| ------------------------ | -------------------------------------------------- |
+| `@mcp-b/global`          | Core polyfill, installs `navigator.modelContext`   |
+| `@mcp-b/react-webmcp`    | React hooks (`useWebMCP`)                          |
+| `@mcp-b/transports`      | Transport implementations (Iframe, Tab, Extension) |
+| `@mcp-b/webmcp-ts-sdk`   | Browser-adapted MCP SDK                            |
+| `@mcp-b/extension-tools` | Pre-built Chrome Extension tools                   |
 
 ## Using WebMCP in MCP Apps
 

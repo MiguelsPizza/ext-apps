@@ -12,7 +12,7 @@ const DIST_DIR = import.meta.filename.endsWith(".ts")
 const httpRequestInputSchema = z.object({
   method: z.string().default("GET"),
   url: z.string(),
-  headers: z.record(z.string()).optional(),
+  headers: z.record(z.string(), z.string()).optional(),
   body: z.any().optional(),
   bodyType: z
     .enum(["none", "json", "text", "formData", "urlEncoded", "base64"])
@@ -35,7 +35,7 @@ const httpRequestInputSchema = z.object({
 const httpRequestOutputSchema = z.object({
   status: z.number(),
   statusText: z.string().optional(),
-  headers: z.record(z.string()),
+  headers: z.record(z.string(), z.string()),
   body: z.any().optional(),
   bodyType: z
     .enum(["none", "json", "text", "formData", "urlEncoded", "base64"])
@@ -46,6 +46,29 @@ const httpRequestOutputSchema = z.object({
 });
 
 type HttpRequestArgs = z.infer<typeof httpRequestInputSchema>;
+
+type DemoItem = {
+  id: number;
+  name: string;
+  source: string;
+  createdAt: string;
+};
+
+const items: DemoItem[] = [
+  {
+    id: 1,
+    name: "alpha",
+    source: "seed",
+    createdAt: "2026-01-01T00:00:00.000Z",
+  },
+  {
+    id: 2,
+    name: "bravo",
+    source: "seed",
+    createdAt: "2026-01-02T00:00:00.000Z",
+  },
+];
+let nextItemId = 3;
 
 function getCurrentTime(): string {
   return new Date().toISOString();
@@ -92,6 +115,93 @@ function normalizeRequestUrl(url: string): string {
     }
   }
   return url;
+}
+
+function addItem(name: string, source: string): DemoItem {
+  const item: DemoItem = {
+    id: nextItemId++,
+    name,
+    source,
+    createdAt: new Date().toISOString(),
+  };
+  items.push(item);
+  return item;
+}
+
+function getHeader(
+  headers: Record<string, string> | undefined,
+  name: string,
+): string | undefined {
+  if (!headers) {
+    return undefined;
+  }
+  const target = name.toLowerCase();
+  for (const [key, value] of Object.entries(headers)) {
+    if (key.toLowerCase() === target) {
+      return value;
+    }
+  }
+  return undefined;
+}
+
+function parseFormDataFields(body: unknown): Record<string, unknown> {
+  if (Array.isArray(body)) {
+    const record: Record<string, unknown> = {};
+    for (const entry of body) {
+      if (!entry || typeof entry !== "object") {
+        continue;
+      }
+      const field = entry as { name?: string; value?: string; data?: string };
+      if (!field.name) {
+        continue;
+      }
+      record[field.name] = field.value ?? field.data ?? "";
+    }
+    return record;
+  }
+  if (body && typeof body === "object") {
+    return body as Record<string, unknown>;
+  }
+  return {};
+}
+
+function parseRequestBody(args: HttpRequestArgs): Record<string, unknown> {
+  const { body, bodyType } = args;
+  if (body == null || bodyType === "none" || !bodyType) {
+    return {};
+  }
+
+  if (bodyType === "json") {
+    if (typeof body === "string") {
+      try {
+        return JSON.parse(body) as Record<string, unknown>;
+      } catch {
+        return {};
+      }
+    }
+    if (typeof body === "object") {
+      return body as Record<string, unknown>;
+    }
+  }
+
+  if (bodyType === "urlEncoded") {
+    if (typeof body === "string") {
+      return Object.fromEntries(new URLSearchParams(body));
+    }
+    if (body && typeof body === "object") {
+      return body as Record<string, unknown>;
+    }
+  }
+
+  if (bodyType === "formData") {
+    return parseFormDataFields(body);
+  }
+
+  if (bodyType === "text") {
+    return { text: String(body) };
+  }
+
+  return { body };
 }
 
 /**
@@ -141,21 +251,94 @@ export function createServer(): McpServer {
       const method = (args.method ?? "GET").toUpperCase();
       const url = normalizeRequestUrl(args.url);
       const pathname = url.split("?")[0];
+      const client = getHeader(args.headers, "x-demo-client") ?? "unknown";
+      const withClient = (body: Record<string, unknown>) => ({
+        client,
+        ...body,
+      });
 
-      if (method !== "GET" && method !== "HEAD") {
+      if (pathname === "/api/time") {
+        if (method !== "GET" && method !== "HEAD") {
+          return buildHttpResponse(
+            405,
+            withClient({ error: "Method Not Allowed" }),
+            { statusText: "Method Not Allowed" },
+          );
+        }
+        const time = getCurrentTime();
+        return buildHttpResponse(200, withClient({ time }), { statusText: "OK" });
+      }
+
+      if (pathname === "/api/items") {
+        if (method === "GET" || method === "HEAD") {
+          return buildHttpResponse(
+            200,
+            withClient({ items }),
+            { statusText: "OK" },
+          );
+        }
+        if (method === "POST") {
+          const payload = parseRequestBody(args);
+          const name =
+            (typeof payload.name === "string" && payload.name) ||
+            (typeof payload.item === "string" && payload.item) ||
+            (typeof payload.text === "string" && payload.text) ||
+            undefined;
+          if (!name) {
+            return buildHttpResponse(
+              400,
+              withClient({ error: "Missing item name" }),
+              { statusText: "Bad Request" },
+            );
+          }
+          const item = addItem(name, client);
+          return buildHttpResponse(
+            201,
+            withClient({ item, items }),
+            { statusText: "Created" },
+          );
+        }
         return buildHttpResponse(
           405,
-          { error: "Method Not Allowed" },
+          withClient({ error: "Method Not Allowed" }),
           { statusText: "Method Not Allowed" },
         );
       }
 
-      if (pathname === "/api/time") {
-        const time = getCurrentTime();
-        return buildHttpResponse(200, { time }, { statusText: "OK" });
+      if (pathname === "/api/items/xhr") {
+        if (method !== "POST") {
+          return buildHttpResponse(
+            405,
+            withClient({ error: "Method Not Allowed" }),
+            { statusText: "Method Not Allowed" },
+          );
+        }
+        const payload = parseRequestBody(args);
+        const name =
+          (typeof payload.name === "string" && payload.name) ||
+          (typeof payload.item === "string" && payload.item) ||
+          (typeof payload.text === "string" && payload.text) ||
+          undefined;
+        if (!name) {
+          return buildHttpResponse(
+            400,
+            withClient({ error: "Missing item name" }),
+            { statusText: "Bad Request" },
+          );
+        }
+        const item = addItem(name, client);
+        return buildHttpResponse(
+          201,
+          withClient({ item, items }),
+          { statusText: "Created" },
+        );
       }
 
-      return buildHttpResponse(404, { error: "Not Found" }, { statusText: "Not Found" });
+      return buildHttpResponse(
+        404,
+        withClient({ error: "Not Found" }),
+        { statusText: "Not Found" },
+      );
     },
   );
 

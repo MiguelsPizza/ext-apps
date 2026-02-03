@@ -27,19 +27,19 @@ The result: **developers write normal web apps** that work standalone or as MCP 
 
 ## Documents
 
-| Document | Description |
-|----------|-------------|
-| [01-vision.md](./01-vision.md) | High-level concept and motivation |
-| [02-current-architecture.md](./02-current-architecture.md) | How MCP Apps work today (PR #72) |
-| [03-webmcp-overview.md](./03-webmcp-overview.md) | WebMCP standard and polyfill |
-| [04-proposed-architecture.md](./04-proposed-architecture.md) | The new model in detail |
-| [05-fetch-proxy.md](./05-fetch-proxy.md) | MCP fetch wrapper implementation |
-| [06-code-paths.md](./06-code-paths.md) | What changes in ext-apps SDK |
-| [07-migration-guide.md](./07-migration-guide.md) | How existing apps would migrate |
-| [08-proof-of-concept.md](./08-proof-of-concept.md) | PoC implementation plan |
-| [09-complexity-analysis.md](./09-complexity-analysis.md) | Current model vs. proposed (honest comparison) |
-| [10-counterarguments.md](./10-counterarguments.md) | Addressing legitimate concerns |
-| [11-edge-cases.md](./11-edge-cases.md) | Protocols, transports, and limitations |
+| Document                                                     | Description                                    |
+| ------------------------------------------------------------ | ---------------------------------------------- |
+| [01-vision.md](./01-vision.md)                               | High-level concept and motivation              |
+| [02-current-architecture.md](./02-current-architecture.md)   | How MCP Apps work today (PR #72)               |
+| [03-webmcp-overview.md](./03-webmcp-overview.md)             | WebMCP standard and polyfill                   |
+| [04-proposed-architecture.md](./04-proposed-architecture.md) | The new model in detail                        |
+| [05-fetch-proxy.md](./05-fetch-proxy.md)                     | MCP fetch wrapper implementation               |
+| [06-code-paths.md](./06-code-paths.md)                       | What changes in ext-apps SDK                   |
+| [07-migration-guide.md](./07-migration-guide.md)             | How existing apps would migrate                |
+| [08-proof-of-concept.md](./08-proof-of-concept.md)           | PoC implementation plan                        |
+| [09-complexity-analysis.md](./09-complexity-analysis.md)     | Current model vs. proposed (honest comparison) |
+| [10-counterarguments.md](./10-counterarguments.md)           | Addressing legitimate concerns                 |
+| [11-edge-cases.md](./11-edge-cases.md)                       | Protocols, transports, and limitations         |
 
 ## Quick Comparison
 
@@ -53,15 +53,22 @@ server.registerTool("cart_add", schema, async ({ itemId }) => {
 });
 
 // === APP: Use app.registerTool() for model interaction ===
-const app = new App({ name: "Shop", version: "1.0" }, { tools: { listChanged: true } });
+const app = new App(
+  { name: "Shop", version: "1.0" },
+  { tools: { listChanged: true } },
+);
 
-app.registerTool("add_to_cart", {
-  inputSchema: z.object({ itemId: z.string() })
-}, async ({ itemId }) => {
-  cart.push(itemId);
-  await app.callServerTool("cart_add", { itemId });  // Backend call via server tool
-  return { content: [{ type: "text", text: "Added" }] };
-});
+app.registerTool(
+  "add_to_cart",
+  {
+    inputSchema: z.object({ itemId: z.string() }),
+  },
+  async ({ itemId }) => {
+    cart.push(itemId);
+    await app.callServerTool("cart_add", { itemId }); // Backend call via server tool
+    return { content: [{ type: "text", text: "Added" }] };
+  },
+);
 
 await app.connect();
 ```
@@ -116,8 +123,12 @@ For REST-backed apps, the current pattern requires:
 
 ```typescript
 // Server: Define tool for each backend operation
-server.registerTool("cart_add", schema, async ({ itemId }) => db.cart.add(itemId));
-server.registerTool("cart_remove", schema, async ({ itemId }) => db.cart.remove(itemId));
+server.registerTool("cart_add", schema, async ({ itemId }) =>
+  db.cart.add(itemId),
+);
+server.registerTool("cart_remove", schema, async ({ itemId }) =>
+  db.cart.remove(itemId),
+);
 // ... one tool per endpoint
 
 // App: Call server tools (can't just use fetch)
@@ -125,6 +136,7 @@ await app.callServerTool("cart_add", { itemId });
 ```
 
 This is **deliberate** — it ensures all backend communication is explicit and auditable. But it means:
+
 - Existing fetch-based code must be rewritten
 - Every REST endpoint needs a server tool definition
 - Apps aren't portable to non-MCP contexts
@@ -182,6 +194,7 @@ This plan keeps dev mode as a normal web app while enabling MCP behavior only wh
 ### Phase 4 — Demo Example (Proof of Flow)
 
 Use `examples/basic-server-vanillajs`:
+
 1. Add `initMcpFetch(app)` and replace `app.callServerTool("get-time")` with `fetch("/api/time")`.
 2. Implement `http_request` in the server (switch on `/api/time`).
 3. Add a WebMCP tool that calls the same function as the button click.
