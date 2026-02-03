@@ -4,8 +4,8 @@
   "version": "1.0.1",
   "type": "module",
   "scripts": {
-    "build": "tsc --noEmit && concurrently \"cross-env INPUT=index.html vite build\" \"cross-env INPUT=sandbox.html vite build\"",
-    "watch": "concurrently \"cross-env INPUT=index.html vite build --watch\" \"cross-env INPUT=sandbox.html vite build --watch\"",
+    "build": "tsc --noEmit && concurrently \"cross-env INPUT=index.html vite build\" \"cross-env INPUT=sandbox.html vite build\" \"cross-env INPUT=http-adapter-host.html vite build\" \"cross-env INPUT=http-adapter-app.html vite build\"",
+    "watch": "concurrently \"cross-env INPUT=index.html vite build --watch\" \"cross-env INPUT=sandbox.html vite build --watch\" \"cross-env INPUT=http-adapter-host.html vite build --watch\" \"cross-env INPUT=http-adapter-app.html vite build --watch\"",
     "serve": "bun --watch serve.ts",
     "start": "cross-env NODE_ENV=development npm run build && npm run serve",
     "dev": "cross-env NODE_ENV=development concurrently \"npm run watch\" \"npm run serve\""
@@ -26,6 +26,7 @@
     "concurrently": "^9.2.1",
     "cors": "^2.8.5",
     "express": "^5.1.0",
+    "msw": "^2.12.7",
     "prettier": "^3.6.2",
     "typescript": "^5.9.3",
     "vite": "^6.0.0",
