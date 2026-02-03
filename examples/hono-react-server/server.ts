@@ -78,8 +78,7 @@ export function createServer(): McpServer {
       outputSchema: McpHttpResponseSchema,
       _meta: { ui: { visibility: ["app"] } },
     },
-    async (args) =>
-      proxyHandler({ name: "http_request", arguments: args })
+    async (args) => proxyHandler({ name: "http_request", arguments: args }),
   );
 
   registerAppResource(
