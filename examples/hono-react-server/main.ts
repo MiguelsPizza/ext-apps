@@ -40,7 +40,7 @@ async function startMcpHttpServer(createServerFn: () => McpServer) {
         "mcp-protocol-version",
       ],
       exposeHeaders: ["mcp-session-id", "mcp-protocol-version"],
-    })
+    }),
   );
 
   const server = createServerFn();

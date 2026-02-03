@@ -45,16 +45,19 @@ export function safeJsonParse(
 ```
 
 **New option:**
+
 - Add `debug?: boolean` to `McpHttpBaseOptions` and `McpHttpProxyOptions` in `src/http-adapter/http-options.ts`.
 - Pass `debug` through request/response parsing code paths.
 
 **Affected call sites to update:**
+
 - `src/http-adapter/shared/body.ts:83` - Add context `"request body"`
 - `src/http-adapter/shared/body.ts:180` - Add context `"request body"`
 - `src/http-adapter/shared/body.ts:268` - Add context `"http_request response"`
 - `src/http-adapter/fetch-wrapper/fetch.ts:656` - Add context `"proxy response"`
 
 **Testing:**
+
 - Add test for invalid JSON with `debug: true` (assert console.debug called).
 - Add test for invalid JSON with `debug: false` (no logging).
 
@@ -104,10 +107,12 @@ private _handleError(error: unknown): void {
 ```
 
 **Notes:**
+
 - `_lastError` is internal only (not part of public API).
 - Do not change existing event semantics beyond improved logging/context.
 
 **Testing:**
+
 - Add test that `_lastError` is set when tool call fails.
 - Verify `console.error` is only called when `debug: true`.
 
@@ -131,6 +136,7 @@ console.warn(
 ```
 
 **Testing:**
+
 - Add test for malformed multipart boundary.
 - Verify warning message appears.
 
@@ -200,6 +206,7 @@ export function extractHttpResponse(
 ```
 
 **Testing:**
+
 - Add test for missing `status` field.
 - Add test for non-object response.
 - Add test for empty response.
@@ -250,6 +257,7 @@ function fieldsToFormData(body: unknown, debug?: boolean): FormData {
 ```
 
 **Testing:**
+
 - Add test for missing `name` property.
 - Add test for non-object entries.
 - Verify debug logging when enabled.
@@ -259,6 +267,7 @@ function fieldsToFormData(body: unknown, debug?: boolean): FormData {
 ### 6. Inconsistent Forbidden Header Handling
 
 **Location:**
+
 - XHR: `xhr.ts:352-359` (warns)
 - Fetch: `fetch.ts:502-506` (silent)
 

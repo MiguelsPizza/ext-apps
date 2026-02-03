@@ -60,19 +60,20 @@ import { safeJsonParse } from "../shared/json.js";
  *
  * @throws {Error} If global fetch is not available and no custom fetch is provided
  *
- * @example Basic usage
- * ```typescript
- * const app = new App({ name: "MyApp", version: "1.0" });
+ * @example
+ * ```ts source="./fetch.examples.ts#initMcpFetch_basicUsage"
+ * const app = new App({ name: "MyApp", version: "1.0.0" }, {});
  * await app.connect();
  *
  * // Initialize fetch wrapper (installs globally by default)
- * const { restore } = initMcpFetch(app, { interceptPaths: ["/api/"] });
+ * const handle = initMcpFetch(app, { interceptPaths: ["/api/"] });
  *
  * // Now fetch calls to /api/* are proxied through MCP
  * const response = await fetch("/api/users");
+ * console.log(await response.json());
  *
  * // Restore original fetch when done
- * restore();
+ * handle.restore();
  * ```
  */
 export function initMcpFetch(
@@ -108,6 +109,30 @@ export function initMcpFetch(
   };
 }
 
+/**
+ * Create a tool handler for the http_request transport.
+ *
+ * @param options - Proxy configuration for http_request tool calls
+ * @returns A handler suitable for server.registerTool or tools/call routing
+ *
+ * @example
+ * ```ts source="./fetch.examples.ts#createHttpRequestToolHandler_basicUsage"
+ * const handler = createHttpRequestToolHandler({
+ *   baseUrl: "https://api.example.com",
+ *   allowOrigins: ["https://api.example.com"],
+ *   allowPaths: ["/api/"],
+ * });
+ *
+ * const result = await handler({
+ *   name: "http_request",
+ *   arguments: { method: "GET", url: "/api/time" },
+ * });
+ *
+ * if (!result.isError) {
+ *   console.log(result.structuredContent);
+ * }
+ * ```
+ */
 export function createHttpRequestToolHandler(
   options: McpFetchProxyOptions = {},
 ): (
@@ -128,6 +153,24 @@ export function createHttpRequestToolHandler(
   };
 }
 
+/**
+ * Wrap an existing call tool handler with http_request proxy support.
+ *
+ * @param handler - Existing tools/call handler to delegate non-http_request calls
+ * @param options - Proxy configuration for http_request tool calls
+ * @returns A handler that routes http_request calls through the proxy
+ *
+ * @example
+ * ```ts source="./fetch.examples.ts#wrapCallToolHandlerWithFetchProxy_basicUsage"
+ * const wrapped = wrapCallToolHandlerWithFetchProxy(baseHandler, {
+ *   baseUrl: "https://api.example.com",
+ *   allowOrigins: ["https://api.example.com"],
+ *   allowPaths: ["/api/"],
+ * });
+ *
+ * await wrapped({ name: "http_request", arguments: { url: "/api/time" } }, {});
+ * ```
+ */
 export function wrapCallToolHandlerWithFetchProxy(
   handler: (
     params: CallToolRequest["params"],

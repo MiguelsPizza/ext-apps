@@ -1,6 +1,8 @@
 import { test, expect } from "@playwright/test";
 
-test("direct vs proxied fetch and XHR hit the same service worker", async ({ page }) => {
+test("direct vs proxied fetch and XHR hit the same service worker", async ({
+  page,
+}) => {
   await page.goto("/http-adapter-host.html");
 
   await page.waitForFunction(() => (window as any).__hostReady === true, null, {

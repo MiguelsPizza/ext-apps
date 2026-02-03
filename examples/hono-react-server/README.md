@@ -10,11 +10,15 @@ Instead of this:
 
 ```typescript
 // ❌ Traditional approach: Define a tool the model can't even use
-server.registerTool("get_items", {
-  _meta: { ui: { visibility: ["app"] } },  // Model can't call this
-}, async () => {
-  return db.getItems();
-});
+server.registerTool(
+  "get_items",
+  {
+    _meta: { ui: { visibility: ["app"] } }, // Model can't call this
+  },
+  async () => {
+    return db.getItems();
+  },
+);
 
 // App calls it via MCP
 await app.callServerTool("get_items");
@@ -111,7 +115,9 @@ Open http://localhost:8080, select "hono-react-server".
 // hono-backend.ts — Export the app type
 export const honoApp = new Hono()
   .get("/api/items", (c) => c.json({ items }))
-  .post("/api/items", async (c) => { /* ... */ });
+  .post("/api/items", async (c) => {
+    /* ... */
+  });
 
 export type AppType = typeof honoApp;
 ```
@@ -121,15 +127,16 @@ export type AppType = typeof honoApp;
 import { hc } from "hono/client";
 import type { AppType } from "./hono-backend.js";
 
-const baseUrl = window.self !== window.top
-  ? "/"
-  : (import.meta.env.VITE_API_BASE_URL ?? "http://localhost:3102");
+const baseUrl =
+  window.self !== window.top
+    ? "/"
+    : (import.meta.env.VITE_API_BASE_URL ?? "http://localhost:3102");
 
 const client = hc<AppType>(baseUrl);
 
 // Autocomplete knows the return type!
 const res = await client.api.items.$get();
-const data = await res.json();  // { items: Item[] }
+const data = await res.json(); // { items: Item[] }
 
 // Type-checked request body
 await client.api.items.$post({ json: { name: "New Item" } });
@@ -155,29 +162,33 @@ attempts and keeps the UI functional for local dev.
 
 ```typescript
 // One tool handles all HTTP — no per-endpoint definitions needed
-server.registerTool("http_request", {
-  _meta: { ui: { visibility: ["app"] } },
-}, createHttpRequestToolHandler({
-  baseUrl: "http://localhost:3102",
-  allowPaths: ["/api/"],
-}));
+server.registerTool(
+  "http_request",
+  {
+    _meta: { ui: { visibility: ["app"] } },
+  },
+  createHttpRequestToolHandler({
+    baseUrl: "http://localhost:3102",
+    allowPaths: ["/api/"],
+  }),
+);
 ```
 
 ## Files
 
-| File | Purpose |
-|------|---------|
-| [`src/hono-backend.ts`](src/hono-backend.ts) | Pure Hono HTTP server — no MCP knowledge |
-| [`src/mcp-app.tsx`](src/mcp-app.tsx) | React app with type-safe Hono client |
-| [`server.ts`](server.ts) | MCP server with `http_request` tool |
-| [`main.ts`](main.ts) | Entry point — starts Hono backend + MCP server |
+| File                                         | Purpose                                        |
+| -------------------------------------------- | ---------------------------------------------- |
+| [`src/hono-backend.ts`](src/hono-backend.ts) | Pure Hono HTTP server — no MCP knowledge       |
+| [`src/mcp-app.tsx`](src/mcp-app.tsx)         | React app with type-safe Hono client           |
+| [`server.ts`](server.ts)                     | MCP server with `http_request` tool            |
+| [`main.ts`](main.ts)                         | Entry point — starts Hono backend + MCP server |
 
 ## Ports
 
-| Service | Default Port | Environment Variable |
-|---------|--------------|---------------------|
-| MCP Server | 3001 | `PORT` (preferred) or `MCP_PORT` |
-| Hono Backend | 3102 (or `PORT + 1000` when `PORT` is set) | `BACKEND_PORT` |
+| Service      | Default Port                               | Environment Variable             |
+| ------------ | ------------------------------------------ | -------------------------------- |
+| MCP Server   | 3001                                       | `PORT` (preferred) or `MCP_PORT` |
+| Hono Backend | 3102 (or `PORT + 1000` when `PORT` is set) | `BACKEND_PORT`                   |
 
 When `PORT` is provided (for example by `examples/run-all.ts`), the MCP server
 binds to that port and the backend defaults to `PORT + 1000` to avoid collisions.
@@ -222,13 +233,13 @@ Override with `BACKEND_PORT` if you want a different backend port.
 
 ## Why This Pattern?
 
-| Traditional MCP Apps | This Pattern |
-|---------------------|--------------|
-| Define tool per endpoint | One generic `http_request` tool |
-| Learn MCP-specific APIs | Use standard `fetch()` / Hono client |
-| Separate dev/prod code paths | Same code works everywhere |
-| UI-only tools (model can't see) | No overhead — just HTTP |
-| Manual type definitions | Type-safe from Hono route definitions |
+| Traditional MCP Apps            | This Pattern                          |
+| ------------------------------- | ------------------------------------- |
+| Define tool per endpoint        | One generic `http_request` tool       |
+| Learn MCP-specific APIs         | Use standard `fetch()` / Hono client  |
+| Separate dev/prod code paths    | Same code works everywhere            |
+| UI-only tools (model can't see) | No overhead — just HTTP               |
+| Manual type definitions         | Type-safe from Hono route definitions |
 
 ## Learn More
 

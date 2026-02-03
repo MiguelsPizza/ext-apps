@@ -38,8 +38,8 @@ import {
  * @returns Handle with XMLHttpRequest class and restore function
  *
  * @example
- * ```typescript
- * const app = new App({ name: "My App", version: "1.0.0" });
+ * ```ts source="./xhr.examples.ts#initMcpXhr_basicUsage"
+ * const app = new App({ name: "My App", version: "1.0.0" }, {});
  * const handle = initMcpXhr(app);
  *
  * // Now XHR calls are proxied through MCP
@@ -486,8 +486,7 @@ function createMcpXhrClass(
           ? { signal: this._abortController.signal }
           : undefined;
 
-        const timeoutMs =
-          this.timeout > 0 ? this.timeout : options.timeoutMs;
+        const timeoutMs = this.timeout > 0 ? this.timeout : options.timeoutMs;
         if (timeoutMs && timeoutMs > 0) {
           this._timedOut = false;
           timeoutId = setTimeout(() => {

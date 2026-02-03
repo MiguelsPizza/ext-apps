@@ -15,6 +15,20 @@ import type { McpXhrHandle } from "./xhr-wrapper/xhr-options.js";
 
 /**
  * Initialize the unified MCP HTTP wrapper.
+ *
+ * @example
+ * ```ts source="./init.examples.ts#initMcpHttp_basicUsage"
+ * const app = new App({ name: "MyApp", version: "1.0.0" }, {});
+ * await app.connect();
+ *
+ * const handle = initMcpHttp(app, {
+ *   interceptPaths: ["/api/"],
+ *   fallbackToNative: true,
+ * });
+ *
+ * await fetch("/api/time");
+ * handle.restore();
+ * ```
  */
 export function initMcpHttp(
   app: App,
