@@ -10,7 +10,10 @@ import {
 } from "@modelcontextprotocol/ext-apps/react";
 import { initMcpHttp } from "@modelcontextprotocol/ext-apps/http-adapter";
 import { hc } from "hono/client";
-import { getBackendUrl, type McpUiHostContext } from "@modelcontextprotocol/ext-apps";
+import {
+  getBackendUrl,
+  type McpUiHostContext,
+} from "@modelcontextprotocol/ext-apps";
 import type { AppType, Item } from "./hono-backend.js";
 
 import "./global.css";
@@ -119,9 +122,7 @@ function HonoReactApp() {
     const previousHandler = app.onhostcontextchanged;
 
     const updateBackendUrl = (context?: McpUiHostContext) => {
-      const nextUrl = getBackendUrl(
-        context ?? app.getHostContext(),
-      );
+      const nextUrl = getBackendUrl(context ?? app.getHostContext());
       if (nextUrl) {
         setBackendUrl(nextUrl);
       }
