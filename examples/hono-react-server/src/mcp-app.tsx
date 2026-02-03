@@ -10,31 +10,24 @@ import {
 } from "@modelcontextprotocol/ext-apps/react";
 import { initMcpHttp } from "@modelcontextprotocol/ext-apps/http-adapter";
 import { hc } from "hono/client";
-import type { McpUiHostContext } from "@modelcontextprotocol/ext-apps";
+import { getBackendUrl, type McpUiHostContext } from "@modelcontextprotocol/ext-apps";
 import type { AppType, Item } from "./hono-backend.js";
 
 import "./global.css";
 import styles from "./mcp-app.module.css";
 
-const DEFAULT_BACKEND_URL = "http://localhost:3102";
+declare const __BACKEND_URL__: string;
+const DEFAULT_BACKEND_URL =
+  typeof __BACKEND_URL__ !== "undefined"
+    ? __BACKEND_URL__
+    : "http://localhost:3102";
 
 function getDirectBaseUrl(): string {
   return import.meta.env.VITE_API_BASE_URL ?? DEFAULT_BACKEND_URL;
 }
 
-function extractBackendUrlFromContext(
-  context?: McpUiHostContext,
-): string | undefined {
-  if (!context?.toolInfo?.tool?._meta) {
-    return undefined;
-  }
-  const meta = context.toolInfo.tool._meta as {
-    demo?: { backendUrl?: unknown };
-  };
-  return typeof meta.demo?.backendUrl === "string"
-    ? meta.demo.backendUrl
-    : undefined;
-}
+const isInIframe = () =>
+  typeof window !== "undefined" && window.self !== window.top;
 
 type Mode = "connecting" | "mcp" | "direct";
 
@@ -49,12 +42,15 @@ function getModeCopy(
   hasApp: boolean,
   isMcp: boolean,
   proxyEnabled: boolean,
+  inIframe: boolean,
 ): ModeCopy {
+  const ctx = inIframe ? "(iframe)" : "(standalone)";
+
   if (!hasApp) {
     return {
       mode: "connecting",
       value: "Connecting...",
-      description: "",
+      description: ctx,
       showToggle: false,
     };
   }
@@ -64,13 +60,13 @@ function getModeCopy(
       ? {
           mode: "mcp",
           value: "MCP Proxied",
-          description: "fetch() → MCP http_request tool → Hono backend",
+          description: `fetch() → MCP http_request tool → Hono backend ${ctx}`,
           showToggle: true,
         }
       : {
           mode: "mcp",
           value: "Direct HTTP (proxy disabled)",
-          description: "fetch() → Hono backend (proxy bypassed)",
+          description: `fetch() → Hono backend (proxy bypassed) ${ctx}`,
           showToggle: true,
         };
   }
@@ -78,9 +74,26 @@ function getModeCopy(
   return {
     mode: "direct",
     value: "Direct HTTP",
-    description: "fetch() → Hono backend (no MCP)",
+    description: `fetch() → Hono backend (no MCP) ${ctx}`,
     showToggle: false,
   };
+}
+
+type AppError = {
+  type: "csp-blocked" | "network" | "unknown";
+  message: string;
+  hint?: string;
+};
+
+function detectCspError(error: unknown): AppError | null {
+  // Fetch API throws TypeError for all network-level failures including CSP
+  if (error instanceof TypeError) {
+    return {
+      type: "csp-blocked",
+      message: "Request blocked (CSP or network error)",
+    };
+  }
+  return null;
 }
 
 function HonoReactApp() {
@@ -90,6 +103,7 @@ function HonoReactApp() {
   const [backendUrl, setBackendUrl] = useState(getDirectBaseUrl());
   const [items, setItems] = useState<Item[]>([]);
   const [newItemName, setNewItemName] = useState("");
+  const [error, setError] = useState<AppError | null>(null);
 
   const { app } = useApp({
     appInfo: { name: "Hono React Demo", version: "1.0.0" },
@@ -105,7 +119,7 @@ function HonoReactApp() {
     const previousHandler = app.onhostcontextchanged;
 
     const updateBackendUrl = (context?: McpUiHostContext) => {
-      const nextUrl = extractBackendUrlFromContext(
+      const nextUrl = getBackendUrl(
         context ?? app.getHostContext(),
       );
       if (nextUrl) {
@@ -148,35 +162,74 @@ function HonoReactApp() {
   const isMcp = Boolean(app?.getHostCapabilities()?.serverTools);
   const isProxying = isMcp && proxyEnabled;
   const baseUrl = isProxying ? "/" : backendUrl;
-  const modeCopy = getModeCopy(hasApp, isMcp, proxyEnabled);
+  const modeCopy = getModeCopy(hasApp, isMcp, proxyEnabled, isInIframe());
   const client = useMemo(() => hc<AppType>(baseUrl), [baseUrl]);
 
   async function fetchItems() {
-    const res = await client.api.items.$get();
-    const data = await res.json();
-    setItems(data.items);
+    try {
+      setError(null);
+      const res = await client.api.items.$get();
+      const data = await res.json();
+      setItems(data.items);
+    } catch (err) {
+      const cspError = detectCspError(err);
+      if (cspError) {
+        setError(cspError);
+      } else {
+        setError({
+          type: "unknown",
+          message: err instanceof Error ? err.message : "Request failed",
+        });
+      }
+    }
   }
 
   async function addItem() {
     const trimmedName = newItemName.trim();
     if (!trimmedName) return;
 
-    const res = await client.api.items.$post({
-      json: { name: trimmedName },
-    });
-    const data = await res.json();
-    if ("items" in data) {
-      setItems(data.items);
-      setNewItemName("");
+    try {
+      setError(null);
+      const res = await client.api.items.$post({
+        json: { name: trimmedName },
+      });
+      const data = await res.json();
+      if ("items" in data) {
+        setItems(data.items);
+        setNewItemName("");
+      }
+    } catch (err) {
+      const cspError = detectCspError(err);
+      if (cspError) {
+        setError(cspError);
+      } else {
+        setError({
+          type: "unknown",
+          message: err instanceof Error ? err.message : "Request failed",
+        });
+      }
     }
   }
 
   async function deleteItem(id: number) {
-    const res = await client.api.items[":id"].$delete({
-      param: { id: id.toString() },
-    });
-    const data = await res.json();
-    if ("items" in data) setItems(data.items);
+    try {
+      setError(null);
+      const res = await client.api.items[":id"].$delete({
+        param: { id: id.toString() },
+      });
+      const data = await res.json();
+      if ("items" in data) setItems(data.items);
+    } catch (err) {
+      const cspError = detectCspError(err);
+      if (cspError) {
+        setError(cspError);
+      } else {
+        setError({
+          type: "unknown",
+          message: err instanceof Error ? err.message : "Request failed",
+        });
+      }
+    }
   }
 
   useEffect(() => {
@@ -193,9 +246,13 @@ function HonoReactApp() {
       <section className={styles.modeCard}>
         <div className={styles.modeLabel}>Current Mode</div>
         <div className={styles.modeValue}>{modeCopy.value}</div>
-        {modeCopy.description && (
-          <div className={styles.modeDescription}>{modeCopy.description}</div>
-        )}
+        <div className={styles.modeDescription}>
+          {error ? (
+            <span className={styles.errorText}>⚠️ {error.message}</span>
+          ) : (
+            modeCopy.description
+          )}
+        </div>
         {modeCopy.showToggle && (
           <label className={styles.toggle}>
             <input

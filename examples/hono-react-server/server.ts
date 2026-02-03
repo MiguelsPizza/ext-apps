@@ -33,12 +33,10 @@ export function createServer(): McpServer {
   });
 
   const resourceUri = "ui://hono-demo/mcp-app.html";
+  // CSP intentionally omits connectDomains to demonstrate security boundary.
+  // Direct HTTP will be blocked by CSP in sandboxed iframes; use MCP proxy instead.
   const cspMeta = {
-    ui: {
-      csp: {
-        connectDomains: [BACKEND_URL],
-      },
-    },
+    ui: {},
   };
 
   registerAppTool(

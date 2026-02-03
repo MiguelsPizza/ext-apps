@@ -110,7 +110,7 @@ async function startInMemoryMcp(): Promise<Client> {
 }
 
 async function connectBridge(client: Client) {
-  appFrame.src = "/http-adapter-app.html";
+  appFrame.src = "/http-adapter-app.test.html";
   await new Promise<void>((resolve) => {
     appFrame.addEventListener("load", () => resolve(), { once: true });
   });

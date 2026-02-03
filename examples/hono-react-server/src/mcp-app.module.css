@@ -224,3 +224,8 @@
   font-weight: 500;
   color: var(--color-text-secondary, #666);
 }
+
+/* Error text */
+.errorText {
+  color: var(--color-warning, #f59e0b);
+}

@@ -42,6 +42,7 @@ export default defineConfig(({ command }) => {
       "process.env.NODE_ENV": JSON.stringify(
         process.env.NODE_ENV ?? "production",
       ),
+      __BACKEND_URL__: JSON.stringify(`http://localhost:${backendPort}`),
     },
   };
 });
