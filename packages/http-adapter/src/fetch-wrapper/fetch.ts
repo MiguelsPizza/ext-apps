@@ -26,13 +26,13 @@ import {
   type McpHttpFormField,
   type McpHttpRequest,
   type McpHttpResponse,
-} from "@modelcontextprotocol/ext-apps";
+} from "../types.js";
 
 // Re-export schemas for server-side tool registration
 export {
   McpHttpRequestSchema,
   McpHttpResponseSchema,
-} from "@modelcontextprotocol/ext-apps";
+} from "../schema.js";
 
 import {
   buildMcpHttpRequestPayloadFromRequest,

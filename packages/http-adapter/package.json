@@ -29,6 +29,7 @@
     "@modelcontextprotocol/ext-apps": "file:../.."
   },
   "peerDependencies": {
-    "@modelcontextprotocol/sdk": "^1.24.0"
+    "@modelcontextprotocol/sdk": "^1.24.0",
+    "zod": "^3.25.0 || ^4.0.0"
   }
 }

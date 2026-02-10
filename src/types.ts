@@ -62,20 +62,6 @@ export {
   type McpUiToolVisibility,
   type McpUiToolMeta,
   type McpUiClientCapabilities,
-  HTTP_REQUEST_TOOL_NAME,
-  type McpHttpBodyType,
-  type McpHttpMethod,
-  type McpHttpFormFieldText,
-  type McpHttpFormFieldBinary,
-  type McpHttpFormField,
-  type McpHttpRequest,
-  type McpHttpResponse,
-  type McpHttpRequestBody,
-  type McpHttpResponseBody,
-  type McpHttpRequestBase,
-  type McpHttpResponseBase,
-  type McpHttpRequestStrict,
-  type McpHttpResponseStrict,
 } from "./spec.types.js";
 
 // Import types needed for protocol type unions (not re-exported, just used internally)
@@ -137,13 +123,6 @@ export {
   McpUiRequestDisplayModeResultSchema,
   McpUiToolVisibilitySchema,
   McpUiToolMetaSchema,
-  McpHttpBodyTypeSchema,
-  McpHttpMethodSchema,
-  McpHttpFormFieldTextSchema,
-  McpHttpFormFieldBinarySchema,
-  McpHttpFormFieldSchema,
-  McpHttpRequestSchema,
-  McpHttpResponseSchema,
 } from "./generated/schema.js";
 
 // Re-export SDK types used in protocol type unions

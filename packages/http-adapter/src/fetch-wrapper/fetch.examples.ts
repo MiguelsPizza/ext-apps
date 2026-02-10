@@ -7,7 +7,7 @@ import type {
   CallToolRequest,
   CallToolResult,
 } from "@modelcontextprotocol/sdk/types.js";
-import type { McpHttpRequest } from "@modelcontextprotocol/ext-apps";
+import type { McpHttpRequest } from "../types.js";
 import { App } from "@modelcontextprotocol/ext-apps";
 import {
   createHttpRequestToolHandler,

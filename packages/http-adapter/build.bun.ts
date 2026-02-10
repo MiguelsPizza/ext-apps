@@ -26,14 +26,14 @@ function buildJs(
 await Promise.all([
   buildJs("src/init.ts", {
     outdir: "dist",
-    external: ["@modelcontextprotocol/sdk", "@modelcontextprotocol/ext-apps"],
+    external: ["@modelcontextprotocol/sdk", "@modelcontextprotocol/ext-apps", "zod"],
   }),
   buildJs("src/fetch-wrapper/fetch.ts", {
     outdir: "dist/fetch-wrapper",
-    external: ["@modelcontextprotocol/sdk", "@modelcontextprotocol/ext-apps"],
+    external: ["@modelcontextprotocol/sdk", "@modelcontextprotocol/ext-apps", "zod"],
   }),
   buildJs("src/xhr-wrapper/xhr.ts", {
     outdir: "dist/xhr-wrapper",
-    external: ["@modelcontextprotocol/sdk", "@modelcontextprotocol/ext-apps"],
+    external: ["@modelcontextprotocol/sdk", "@modelcontextprotocol/ext-apps", "zod"],
   }),
 ]);

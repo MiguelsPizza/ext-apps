@@ -11,7 +11,7 @@ import {
   type McpHttpBodyType,
   type McpHttpRequest,
   type McpHttpResponse,
-} from "@modelcontextprotocol/ext-apps";
+} from "../types.js";
 import type { McpXhrHandle, McpXhrOptions } from "./xhr-options.js";
 import {
   DEFAULT_INTERCEPT_PATHS,

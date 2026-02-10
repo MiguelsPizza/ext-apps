@@ -8,7 +8,7 @@
  * @module @modelcontextprotocol/ext-apps-http-adapter
  */
 
-import type { McpHttpRequest } from "@modelcontextprotocol/ext-apps";
+import type { McpHttpRequest } from "../types.js";
 
 /**
  * Standard fetch function signature.

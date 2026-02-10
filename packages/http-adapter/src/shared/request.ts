@@ -4,7 +4,7 @@
 import type {
   McpHttpBodyType,
   McpHttpRequest,
-} from "@modelcontextprotocol/ext-apps";
+} from "../types.js";
 
 /**
  * Gets the base URL for resolving relative URLs.
