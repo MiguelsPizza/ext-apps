@@ -4,9 +4,9 @@
  * Patches both `fetch()` and `XMLHttpRequest` to route HTTP requests
  * through MCP server tools.
  *
- * @module @modelcontextprotocol/ext-apps/http-adapter
+ * @module @modelcontextprotocol/ext-apps-http-adapter
  */
-import type { App } from "../app.js";
+import type { App } from "@modelcontextprotocol/ext-apps";
 import { initMcpFetch } from "./fetch-wrapper/fetch.js";
 import { initMcpXhr } from "./xhr-wrapper/xhr.js";
 import type { McpHttpHandle, McpHttpOptions } from "./http-options.js";

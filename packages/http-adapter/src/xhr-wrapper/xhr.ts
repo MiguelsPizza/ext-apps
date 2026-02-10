@@ -4,14 +4,14 @@
  * Converts XMLHttpRequest calls into MCP server tool calls (default: "http_request")
  * when running inside a host.
  */
-import type { App } from "../../app.js";
+import type { App } from "@modelcontextprotocol/ext-apps";
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import {
   HTTP_REQUEST_TOOL_NAME,
   type McpHttpBodyType,
   type McpHttpRequest,
   type McpHttpResponse,
-} from "../../types.js";
+} from "@modelcontextprotocol/ext-apps";
 import type { McpXhrHandle, McpXhrOptions } from "./xhr-options.js";
 import {
   DEFAULT_INTERCEPT_PATHS,

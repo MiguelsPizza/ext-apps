@@ -1,5 +1,5 @@
 import { AppBridge, PostMessageTransport } from "@modelcontextprotocol/ext-apps/app-bridge";
-import { createHttpRequestToolHandler } from "@modelcontextprotocol/ext-apps/fetch-wrapper";
+import { createHttpRequestToolHandler } from "@modelcontextprotocol/ext-apps-http-adapter/fetch-wrapper";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";

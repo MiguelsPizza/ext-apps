@@ -10,7 +10,7 @@ import {
   createHttpRequestToolHandler,
   McpHttpRequestSchema,
   McpHttpResponseSchema,
-} from "@modelcontextprotocol/ext-apps/fetch-wrapper";
+} from "@modelcontextprotocol/ext-apps-http-adapter/fetch-wrapper";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import type {
   CallToolResult,
@@ -78,7 +78,8 @@ export function createServer(): McpServer {
       outputSchema: McpHttpResponseSchema,
       _meta: { ui: { visibility: ["app"] } },
     },
-    async (args) => proxyHandler({ name: "http_request", arguments: args }),
+    async (args: Record<string, unknown>) =>
+      proxyHandler({ name: "http_request", arguments: args }),
   );
 
   registerAppResource(

@@ -7,7 +7,7 @@ import {
   type McpHttpBodyType,
   type McpHttpFormField,
   type McpHttpResponse,
-} from "../../types.js";
+} from "@modelcontextprotocol/ext-apps";
 import { safeJsonParse } from "./json.js";
 
 export interface SerializeBodyOptions {

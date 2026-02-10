@@ -5,10 +5,10 @@
  * Uses browser types (RequestCredentials, HeadersInit) where applicable
  * because the http-adapter is browser-specific code that wraps fetch and XMLHttpRequest.
  *
- * @module @modelcontextprotocol/ext-apps/http-adapter
+ * @module @modelcontextprotocol/ext-apps-http-adapter
  */
 
-import type { McpHttpRequest } from "../types.js";
+import type { McpHttpRequest } from "@modelcontextprotocol/ext-apps";
 
 /**
  * Standard fetch function signature.

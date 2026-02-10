@@ -8,7 +8,7 @@ import {
   useHostStyleVariables,
   useDocumentTheme,
 } from "@modelcontextprotocol/ext-apps/react";
-import { initMcpHttp } from "@modelcontextprotocol/ext-apps/http-adapter";
+import { initMcpHttp } from "@modelcontextprotocol/ext-apps-http-adapter";
 import { hc } from "hono/client";
 import type { McpUiHostContext } from "@modelcontextprotocol/ext-apps";
 
