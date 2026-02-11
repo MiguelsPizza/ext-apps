@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, vi } from "vitest";
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import type { App } from "../../src/app.ts";
-import { initMcpXhr } from "../../src/http-adapter/xhr-wrapper/xhr.ts";
+import { initMcpXhr } from "../../packages/http-adapter/src/xhr-wrapper/xhr.ts";
 import { test } from "./test-extend";
 
 function createAppStub(result: CallToolResult) {

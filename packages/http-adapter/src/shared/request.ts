@@ -1,7 +1,10 @@
 /**
  * Request utilities shared across HTTP adapters.
  */
-import type { McpHttpBodyType, McpHttpRequest } from "../../types.js";
+import type {
+  McpHttpBodyType,
+  McpHttpRequest,
+} from "../types.js";
 
 /**
  * Gets the base URL for resolving relative URLs.

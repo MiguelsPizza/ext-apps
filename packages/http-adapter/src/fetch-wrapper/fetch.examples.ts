@@ -7,7 +7,8 @@ import type {
   CallToolRequest,
   CallToolResult,
 } from "@modelcontextprotocol/sdk/types.js";
-import { App } from "../../app.js";
+import type { McpHttpRequest } from "../types.js";
+import { App } from "@modelcontextprotocol/ext-apps";
 import {
   createHttpRequestToolHandler,
   initMcpFetch,
@@ -72,6 +73,37 @@ async function createHttpRequestToolHandler_basicUsage() {
     console.log(result.structuredContent);
   }
   //#endregion createHttpRequestToolHandler_basicUsage
+}
+
+async function createHttpRequestToolHandler_switchOnPath() {
+  //#region createHttpRequestToolHandler_switchOnPath
+  const proxy = createHttpRequestToolHandler({
+    baseUrl: "https://api.example.com",
+    allowOrigins: ["https://api.example.com"],
+    allowPaths: ["/api/"],
+  });
+
+  const handler = async (params: CallToolRequest["params"]) => {
+    if (params.name !== "http_request") {
+      throw new Error(`Unsupported tool: ${params.name}`);
+    }
+
+    const args = (params.arguments ?? {}) as McpHttpRequest;
+    const url = new URL(args.url, "https://api.example.com");
+
+    switch (url.pathname) {
+      case "/api/checkout":
+        return {
+          content: [{ type: "text", text: JSON.stringify({ status: 204 }) }],
+          structuredContent: { status: 204 },
+        };
+      default:
+        return proxy(params);
+    }
+  };
+
+  await handler({ name: "http_request", arguments: { url: "/api/checkout" } });
+  //#endregion createHttpRequestToolHandler_switchOnPath
 }
 
 async function wrapCallToolHandlerWithFetchProxy_basicUsage(

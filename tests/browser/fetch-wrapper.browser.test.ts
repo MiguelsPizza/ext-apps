@@ -6,7 +6,7 @@ import {
   createHttpRequestToolHandler,
   initMcpFetch,
   wrapCallToolHandlerWithFetchProxy,
-} from "../../src/http-adapter/fetch-wrapper/fetch.ts";
+} from "../../packages/http-adapter/src/fetch-wrapper/fetch.ts";
 import { test } from "./test-extend";
 
 function createAppStub(result: CallToolResult) {

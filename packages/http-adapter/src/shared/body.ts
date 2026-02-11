@@ -3,11 +3,11 @@
  */
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import {
-  McpHttpResponseSchema,
   type McpHttpBodyType,
   type McpHttpFormField,
   type McpHttpResponse,
-} from "../../types.js";
+} from "../types.js";
+import { McpHttpResponseSchema } from "../schema.js";
 import { safeJsonParse } from "./json.js";
 
 export interface SerializeBodyOptions {

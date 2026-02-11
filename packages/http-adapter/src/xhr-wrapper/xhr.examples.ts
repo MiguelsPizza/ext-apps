@@ -3,7 +3,7 @@
  *
  * @module
  */
-import { App } from "../../app.js";
+import { App } from "@modelcontextprotocol/ext-apps";
 import { initMcpXhr } from "./xhr.js";
 
 function initMcpXhr_basicUsage() {

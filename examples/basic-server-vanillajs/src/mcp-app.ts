@@ -8,7 +8,7 @@ import {
   applyHostStyleVariables,
   type McpUiHostContext,
 } from "@modelcontextprotocol/ext-apps";
-import { initMcpHttp } from "@modelcontextprotocol/ext-apps/http-adapter";
+import { initMcpHttp } from "@modelcontextprotocol/ext-apps-http-adapter";
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import "./global.css";
 import "./mcp-app.css";

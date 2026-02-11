@@ -4,7 +4,7 @@
  * Converts fetch() calls into MCP server tool calls (default: "http_request")
  * when running inside a host.
  */
-import type { App } from "../../app.js";
+import type { App } from "@modelcontextprotocol/ext-apps";
 import type {
   CallToolRequest,
   CallToolResult,
@@ -26,13 +26,13 @@ import {
   type McpHttpFormField,
   type McpHttpRequest,
   type McpHttpResponse,
-} from "../../types.js";
+} from "../types.js";
 
 // Re-export schemas for server-side tool registration
 export {
   McpHttpRequestSchema,
   McpHttpResponseSchema,
-} from "../../generated/schema.js";
+} from "../schema.js";
 
 import {
   buildMcpHttpRequestPayloadFromRequest,
@@ -131,6 +131,10 @@ export function initMcpFetch(
 /**
  * Create a tool handler for the http_request transport.
  *
+ * This handler can be used as middleware: you can switch on the request URL or
+ * method to handle specific routes locally, and fall back to proxying for the
+ * rest.
+ *
  * @param options - Proxy configuration for http_request tool calls
  * @returns A handler suitable for server.registerTool or tools/call routing
  *
@@ -150,6 +154,36 @@ export function initMcpFetch(
  * if (!result.isError) {
  *   console.log(result.structuredContent);
  * }
+ * ```
+ *
+ * @example
+ * ```ts source="./fetch.examples.ts#createHttpRequestToolHandler_switchOnPath"
+ * const proxy = createHttpRequestToolHandler({
+ *   baseUrl: "https://api.example.com",
+ *   allowOrigins: ["https://api.example.com"],
+ *   allowPaths: ["/api/"],
+ * });
+ *
+ * const handler = async (params: CallToolRequest["params"]) => {
+ *   if (params.name !== "http_request") {
+ *     throw new Error(`Unsupported tool: ${params.name}`);
+ *   }
+ *
+ *   const args = (params.arguments ?? {}) as McpHttpRequest;
+ *   const url = new URL(args.url, "https://api.example.com");
+ *
+ *   switch (url.pathname) {
+ *     case "/api/checkout":
+ *       return {
+ *         content: [{ type: "text", text: JSON.stringify({ status: 204 }) }],
+ *         structuredContent: { status: 204 },
+ *       };
+ *     default:
+ *       return proxy(params);
+ *   }
+ * };
+ *
+ * await handler({ name: "http_request", arguments: { url: "/api/checkout" } });
  * ```
  */
 export function createHttpRequestToolHandler(

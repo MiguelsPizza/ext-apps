@@ -3,7 +3,7 @@
  *
  * @module
  */
-import type { App } from "../app.js";
+import type { App } from "@modelcontextprotocol/ext-apps";
 import { initMcpHttp } from "./init.js";
 
 async function McpHttpHandle_lifecycle_basic(app: App) {

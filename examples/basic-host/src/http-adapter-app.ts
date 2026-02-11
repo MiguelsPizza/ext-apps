@@ -1,5 +1,5 @@
 import { App, PostMessageTransport } from "@modelcontextprotocol/ext-apps";
-import { initMcpHttp } from "@modelcontextprotocol/ext-apps/http-adapter";
+import { initMcpHttp } from "@modelcontextprotocol/ext-apps-http-adapter";
 
 const statusEl = document.getElementById("status");
 

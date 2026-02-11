@@ -35,32 +35,21 @@
       "types": "./dist/src/server/index.d.ts",
       "default": "./dist/src/server/index.js"
     },
-    "./fetch-wrapper": {
-      "types": "./dist/src/http-adapter/fetch-wrapper/fetch.d.ts",
-      "default": "./dist/src/http-adapter/fetch-wrapper/fetch.js"
-    },
-    "./xhr-wrapper": {
-      "types": "./dist/src/http-adapter/xhr-wrapper/xhr.d.ts",
-      "default": "./dist/src/http-adapter/xhr-wrapper/xhr.js"
-    },
-    "./http-adapter": {
-      "types": "./dist/src/http-adapter/init.d.ts",
-      "default": "./dist/src/http-adapter/init.js"
-    },
     "./schema.json": "./dist/src/generated/schema.json"
   },
   "files": [
     "dist"
   ],
   "workspaces": [
-    "examples/*"
+    "examples/*",
+    "packages/*"
   ],
   "scripts": {
     "postinstall": "node scripts/setup-bun.mjs || echo 'setup-bun.mjs failed or not available'",
     "start": "npm run examples:dev",
     "generate:schemas": "tsx scripts/generate-schemas.ts && prettier --write \"src/generated/**/*\"",
     "sync:snippets": "bun scripts/sync-snippets.ts",
-    "build": "npm run generate:schemas && npm run sync:snippets && node scripts/run-bun.mjs build.bun.ts",
+    "build": "npm run generate:schemas && npm run sync:snippets && node scripts/run-bun.mjs build.bun.ts && npm run --workspace packages/http-adapter build",
     "prepack": "npm run build",
     "build:all": "npm run examples:build",
     "test": "bun test src",
